@@ -1,10 +1,10 @@
 :root{
-  --bg: #0f172a;
+  --bg: #0b0f19;          /* neutre */
   --panel: rgba(255,255,255,.06);
   --panel2: rgba(255,255,255,.04);
   --border: rgba(255,255,255,.10);
-  --text: #e2e8f0;
-  --muted: #94a3b8;
+  --text: #e6e8ee;
+  --muted: #a7b0c0;
 
   --ok: #22c55e;
   --warn: #f59e0b;
@@ -18,16 +18,10 @@
 
 *{box-sizing:border-box}
 html, body{height:100%}
-
-/* IMPORTANT: aide iOS à rendre les selects en "dark" (sinon options invisibles/chelou) */
-html{ color-scheme: dark; }
-
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-  background: radial-gradient(1200px 700px at 30% -10%, rgba(59,130,246,.35), transparent 60%),
-              radial-gradient(900px 600px at 90% 10%, rgba(34,197,94,.18), transparent 55%),
-              var(--bg);
+  background: var(--bg); /* ✅ plus de gradients */
   color:var(--text);
   -webkit-font-smoothing: antialiased;
   padding-top: var(--safe-top);
@@ -36,104 +30,66 @@ body{
 /* prevent iOS tap highlight */
 button, a { -webkit-tap-highlight-color: transparent; }
 
-/* ============================================================
-   SPLASH (simple + propre, 2s via JS)
-============================================================ */
+/* ===================== SPLASH ===================== */
 .splash{
-  position:fixed;
-  inset:0;
-  z-index:5000;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(15,23,42,.92);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  position:fixed; inset:0;
+  display:grid; place-items:center;
+  background: var(--bg);
+  z-index:2000;
 }
 .splash__inner{
-  width:min(420px, 92vw);
-  padding:22px;
-  border-radius:24px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.05);
-  box-shadow: 0 20px 80px rgba(0,0,0,.45);
   text-align:center;
+  padding:18px;
 }
 .splash__logo{
-  width:74px;height:74px;
-  margin:0 auto 10px auto;
+  width:74px; height:74px;
   border-radius:22px;
-  display:grid;
-  place-items:center;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  margin:0 auto 12px auto;
+  display:grid; place-items:center;
   position:relative;
-  background: linear-gradient(135deg, rgba(59,130,246,.95), rgba(34,197,94,.55));
-  border:1px solid rgba(255,255,255,.18);
-  box-shadow: 0 18px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.22);
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .splashN{
   font-weight:1000;
-  font-size:34px;
-  color: rgba(226,232,240,.95);
-  transform: perspective(600px) rotateX(10deg) rotateY(-14deg);
+  font-size:30px;
+  letter-spacing:-1px;
 }
 .splashCube{
   position:absolute;
-  inset:-30%;
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.18), transparent 55%);
-  transform: rotate(22deg);
-  pointer-events:none;
+  right:10px; bottom:10px;
+  width:14px; height:14px;
+  border-radius:5px;
+  border:1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
 }
-.splash__title{font-weight:1000;font-size:18px;margin-top:6px}
-.splash__sub{color:var(--muted);font-weight:900;font-size:12px;margin-top:4px}
-.splash__bar{
-  margin:14px auto 0 auto;
-  height:10px;
-  width:min(320px, 80%);
-  border-radius:999px;
-  background: rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.10);
-  overflow:hidden;
-}
-.splash__barFill{
-  height:100%;
-  width:0%;
-  background: rgba(59,130,246,.85);
-  border-radius:999px;
-  animation: splashFill 2s linear forwards;
-}
-@keyframes splashFill{
-  from{ width: 0%; }
-  to{ width: 100%; }
-}
+.splash__title{font-weight:1000; font-size:16px}
+.splash__sub{color:var(--muted); font-weight:900; font-size:12px; margin-top:6px}
 .splash.is-hide{
   opacity:0;
   pointer-events:none;
-  transition: opacity .35s ease;
+  transition: opacity .25s ease;
 }
 
-/* ============================================================
-   TOPBAR
-============================================================ */
+/* ===================== TOPBAR ===================== */
 .topbar{
   position:sticky; top:0; z-index:50;
   display:flex; gap:14px; align-items:center; justify-content:space-between;
   padding:14px 16px;
   border-bottom:1px solid var(--border);
   backdrop-filter: blur(10px);
-  background: rgba(15,23,42,.72);
+  background: rgba(11,15,25,.78);
 }
-
-.brand__title{font-weight:1000;font-size:18px}
-.brand__sub{color:var(--muted);font-weight:900;font-size:12px;margin-top:2px}
-
-/* Brand row with logo */
 .brandRow{
   display:flex;
   align-items:center;
   gap:12px;
 }
+.brand__title{font-weight:1000;font-size:18px}
+.brand__sub{color:var(--muted);font-weight:900;font-size:12px;margin-top:2px}
 
-/* Futuristic 3D N logo */
+/* Logo neutre (pas de gradient) */
 .logoN{
   width:40px;
   height:40px;
@@ -143,41 +99,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
   font-weight:1000;
   font-size:22px;
   letter-spacing:-0.5px;
-  color: rgba(226,232,240,.95);
-
-  background: linear-gradient(135deg,
-    rgba(59,130,246,.95),
-    rgba(34,197,94,.65)
-  );
-
-  border: 1px solid rgba(255,255,255,.18);
+  color: rgba(230,232,238,.95);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
   box-shadow:
     0 12px 30px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.20);
-
-  transform: perspective(600px) rotateX(10deg) rotateY(-14deg);
-  position:relative;
-  overflow:hidden;
-}
-.logoN::before{
-  content:"";
-  position:absolute;
-  inset:-40%;
-  background: radial-gradient(circle at 30% 20%,
-    rgba(255,255,255,.22),
-    transparent 55%
-  );
-  transform: rotate(25deg);
-}
-.logoN::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: linear-gradient(180deg,
-    rgba(255,255,255,.14),
-    transparent 40%,
-    rgba(0,0,0,.18)
-  );
+    inset 0 1px 0 rgba(255,255,255,.10);
+  transform: perspective(600px) rotateX(8deg) rotateY(-10deg);
 }
 
 .tabs{display:flex;gap:8px;flex-wrap:wrap}
@@ -191,8 +119,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
   font-weight:1000;
 }
 .tab.is-active{
-  background: rgba(59,130,246,.22);
-  border-color: rgba(59,130,246,.55);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.16);
 }
 
 .container{
@@ -205,11 +133,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel.is-active{display:block}
 
 .card{
-  background: rgba(255,255,255,.06);
+  background: rgba(255,255,255,.05);
   border:1px solid var(--border);
   border-radius:22px;
   padding:16px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  box-shadow: 0 14px 45px rgba(0,0,0,.28);
 }
 .card__title{font-weight:1000;font-size:16px;margin-bottom:6px}
 .hint{color:var(--muted);font-weight:900;font-size:13px;line-height:1.35}
@@ -237,29 +165,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 label{font-weight:1000;font-size:12px;color:var(--muted)}
 input, select{
   border:1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.20);
+  background: rgba(0,0,0,.22);
   color:var(--text);
   padding:10px 12px;
   border-radius: 14px;
   outline:none;
   font-weight:900;
-
-  /* Aide iOS */
-  color-scheme: dark;
 }
-input::placeholder{color:rgba(148,163,184,.7)}
-input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px rgba(59,130,246,.18)}
-
-/* Option fallback (selon browser) */
-select option{
-  color:#0f172a;
-  background:#e2e8f0;
+input::placeholder{color:rgba(167,176,192,.65)}
+input:focus, select:focus{
+  border-color:rgba(255,255,255,.20);
+  box-shadow:0 0 0 3px rgba(255,255,255,.08);
 }
 
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .btn{
   border:1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.04);
+  background: rgba(255,255,255,.05);
   color: var(--text);
   padding:10px 14px;
   border-radius: 14px;
@@ -267,10 +189,10 @@ select option{
   font-weight:1000;
 }
 .btn--primary{
-  background: rgba(59,130,246,.22);
-  border-color: rgba(59,130,246,.55);
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.18);
 }
-.btn:hover{filter:brightness(1.08)}
+.btn:hover{filter:brightness(1.06)}
 
 .tableWrap{overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.10)}
 .table{width:100%;border-collapse:collapse;min-width:850px;background:rgba(0,0,0,.16)}
@@ -284,8 +206,8 @@ select option{
 .table td{color:var(--text)}
 
 .badgeDel{
-  background: rgba(239,68,68,.18);
-  border:1px solid rgba(239,68,68,.55);
+  background: rgba(239,68,68,.14);
+  border:1px solid rgba(239,68,68,.40);
   padding:6px 10px;
   border-radius:999px;
   font-weight:1000;
@@ -300,82 +222,78 @@ select option{
   cursor:pointer;
   font-weight:1000;
 }
-.starBtn.is-on{border-color: rgba(245,158,11,.7); background: rgba(245,158,11,.18)}
+.starBtn.is-on{border-color: rgba(245,158,11,.6); background: rgba(245,158,11,.14)}
 
 .footer{
   max-width:1200px;
   margin: 14px auto 24px auto;
   padding: 0 14px;
-  color: rgba(148,163,184,.85);
+  color: rgba(167,176,192,.85);
   font-weight:900;
   font-size:12px;
 }
 
-/* Home layout */
+/* ===================== HOME LAYOUT ===================== */
 .homeTopRow{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap:12px;
 }
 
-/* ============================================================
-   DATE BAR (FIX: même style que le reste)
-============================================================ */
+/* ✅ Date bar iPhone clean */
 .dateBar{
   display:flex;
-  align-items:center;
+  flex-direction:column;
   gap:10px;
-  flex-wrap:wrap;
-
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.14);
+}
+.dateRow{
+  display:grid;
+  grid-template-columns: 44px 1fr 44px;
+  gap:10px;
+  align-items:center;
 }
 .iconBtn{
+  height:44px;
+  border-radius:14px;
   border:1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.04);
+  background: rgba(255,255,255,.05);
   color: var(--text);
-  height:42px;
-  min-width:44px;
-  padding:0 12px;
-  border-radius: 14px;
-  cursor:pointer;
   font-weight:1000;
+  cursor:pointer;
+}
+.dateBtn{
+  height:44px;
+  width:100%;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.22);
+  color: var(--text);
+  font-weight:1000;
+  cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
+  padding:0 12px;
 }
-.iconBtn:hover{filter:brightness(1.08)}
-
-.dateBtn{
-  border:1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-  height:42px;
-  padding:0 14px;
-  border-radius: 14px;
-  cursor:pointer;
-  font-weight:1000;
-  display:flex;
-  align-items:center;
-  gap:10px;
+#dateLabel{
+  display:block;
+  width:100%;
   white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:center;
 }
-.dateBtn__ico{opacity:.9}
-
-/* Input date: pas display none (sinon iOS n’ouvre pas), on le cache proprement */
 .dateHidden{
   position:absolute;
-  left:-9999px;
-  width:1px;
-  height:1px;
+  width:1px; height:1px;
   opacity:0;
+  pointer-events:none;
 }
-
-/* Toggle box déjà ok */
+.toggleRow{display:flex}
 .toggleBox{
-  display:flex; align-items:center; gap:10px;
+  width:100%;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
   padding:10px 12px;
   border-radius:16px;
   border:1px solid rgba(255,255,255,.10);
@@ -393,7 +311,7 @@ select option{
 }
 .coach__title{font-weight:1000;margin-bottom:8px}
 .coach__list{margin:0;padding-left:18px;color:var(--text)}
-.coach__list li{margin:6px 0;font-weight:900;color:rgba(226,232,240,.92)}
+.coach__list li{margin:6px 0;font-weight:900;color:rgba(230,232,238,.92)}
 
 .kpiGrid{
   display:grid;
@@ -435,19 +353,19 @@ select option{
 .progress__bar{
   height:100%;
   width:0%;
-  background: rgba(59,130,246,.8);
+  background: rgba(255,255,255,.28);
   border-radius:999px;
   transition: width .2s ease;
 }
 
 /* KPI states */
-.is-ok .progress__bar{ background: rgba(34,197,94,.85); }
-.is-warn .progress__bar{ background: rgba(245,158,11,.85); }
-.is-bad .progress__bar{ background: rgba(239,68,68,.85); }
+.is-ok .progress__bar{ background: rgba(34,197,94,.65); }
+.is-warn .progress__bar{ background: rgba(245,158,11,.65); }
+.is-bad .progress__bar{ background: rgba(239,68,68,.65); }
 
-.is-ok .badge{ border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.18); }
-.is-warn .badge{ border-color: rgba(245,158,11,.55); background: rgba(245,158,11,.18); }
-.is-bad .badge{ border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.18); }
+.is-ok .badge{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.12); }
+.is-warn .badge{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.12); }
+.is-bad .badge{ border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.12); }
 
 .chipRow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
 .chip{
@@ -483,16 +401,16 @@ select option{
 .slider:before{
   position:absolute;content:"";
   height:22px;width:22px;left:3px;top:2px;
-  background: rgba(226,232,240,.95);
+  background: rgba(230,232,238,.95);
   transition:.2s;border-radius:50%;
 }
 .switch input:checked + .slider{
-  background: rgba(34,197,94,.25);
-  border-color: rgba(34,197,94,.55);
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.40);
 }
 .switch input:checked + .slider:before{transform:translateX(24px)}
 
-/* Charts responsive (fix iPhone gigantic canvas) */
+/* Charts responsive */
 .chart{
   width:100%;
   max-width:100%;
@@ -541,7 +459,7 @@ select option{
 .calcRow span{color:var(--muted);font-weight:1000;font-size:13px}
 .calcRow b{font-weight:1000}
 
-/* Autocomplete (iPhone-friendly) */
+/* Autocomplete */
 .autoWrap{position:relative}
 .autoList{
   position:absolute;
@@ -553,7 +471,7 @@ select option{
   overflow:auto;
   border-radius: 14px;
   border:1px solid rgba(255,255,255,.12);
-  background: rgba(15,23,42,.98);
+  background: rgba(11,15,25,.98);
   box-shadow: 0 16px 50px rgba(0,0,0,.45);
 }
 .autoItem{
@@ -562,15 +480,15 @@ select option{
   cursor:pointer;
   border-bottom:1px solid rgba(255,255,255,.06);
 }
-.autoItem:hover{background: rgba(59,130,246,.18)}
-.autoItem small{display:block;color:rgba(148,163,184,.9);font-weight:900;margin-top:2px}
+.autoItem:hover{background: rgba(255,255,255,.06)}
+.autoItem small{display:block;color:rgba(167,176,192,.9);font-weight:900;margin-top:2px}
 
-/* Bottom nav (mobile app) */
+/* Bottom nav */
 .bottomNav{
   position: fixed;
   left:0; right:0; bottom:0;
   padding: 10px 10px calc(10px + var(--safe-bottom));
-  background: rgba(15,23,42,.86);
+  background: rgba(11,15,25,.90);
   backdrop-filter: blur(12px);
   border-top:1px solid rgba(255,255,255,.10);
   display:none;
@@ -598,8 +516,8 @@ select option{
 .btab .ico{font-size:16px; line-height:1}
 .btab span{font-size:11px; opacity:.92}
 .btab.is-active{
-  background: rgba(59,130,246,.22);
-  border-color: rgba(59,130,246,.55);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.18);
 }
 
 /* Responsive */
@@ -612,4 +530,6 @@ select option{
   .chart{height:220px;max-height:220px}
   .tabs--top{display:none}
   .bottomNav{display:grid}
+  .field{min-width:140px}
+  .field.grow{min-width:180px}
 }

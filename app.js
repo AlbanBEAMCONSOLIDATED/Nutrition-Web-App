@@ -87,9 +87,7 @@ function daysBackISO(n){
   return `${yyyy}-${mm}-${dd}`;
 }
 
-/* IMPORTANT iPhone : accepte virgule et point
-   et n'explose pas si l'utilisateur tape "0," ou "1."
-*/
+/* IMPORTANT iPhone : accepte virgule et point */
 function parseDecimalLoose(v){
   const s = String(v ?? "").trim().replace(",", ".");
   if(s === "" || s === "." || s === "-" || s === "-.") return 0;
@@ -97,9 +95,7 @@ function parseDecimalLoose(v){
   return Number.isFinite(x) ? x : 0;
 }
 
-/* Nettoie input en live (sans casser la saisie)
-   Garde chiffres + , .
-*/
+/* Nettoie input en live (sans casser la saisie) */
 function sanitizeDecimalText(s){
   s = String(s ?? "");
   s = s.replace(/\s+/g,"");
@@ -115,7 +111,7 @@ function sanitizeDecimalText(s){
 }
 
 /* ============================================================
-   SPLASH (durée via data-ms)
+   SPLASH 1s
 ============================================================ */
 function runSplashOnce(){
   const splash = document.getElementById("splash");
@@ -124,13 +120,11 @@ function runSplashOnce(){
   document.documentElement.style.overflow = "hidden";
   document.body.style.overflow = "hidden";
 
-  const ms = parseInt(splash.dataset.ms || "1000", 10);
-
   setTimeout(() => {
     splash.classList.add("is-hide");
     document.documentElement.style.overflow = "";
     document.body.style.overflow = "";
-  }, ms);
+  }, 1000);
 }
 
 /* ============================================================
@@ -171,7 +165,6 @@ function calcTargetsFromInputs(s){
   let delta = 0;
   if(s.goal === "cut") delta = -daily;
   else if(s.goal === "bulk") delta = +daily;
-  else delta = 0;
 
   const targetKcal = tdee + delta;
 
@@ -314,8 +307,8 @@ function setChip(id, remaining, unit){
   el.style.borderColor = "rgba(255,255,255,.10)";
   el.style.background  = "rgba(255,255,255,.05)";
   if(remaining < 0){
-    el.style.borderColor = "rgba(239,68,68,.55)";
-    el.style.background  = "rgba(239,68,68,.18)";
+    el.style.borderColor = "rgba(239,68,68,.40)";
+    el.style.background  = "rgba(239,68,68,.12)";
   }
 }
 
@@ -337,6 +330,7 @@ function setKpiBlock(key, consumed, target, unit, stateFn){
 
 function updateDateLabel(dateISO){
   const d = new Date(dateISO + "T00:00:00");
+  // format plus court + ellipsis CSS si besoin
   const opts = { weekday:"short", day:"2-digit", month:"short" };
   const label = d.toLocaleDateString("fr-FR", opts);
   $("#dateLabel").textContent = `${label} · ${dateISO}`;
@@ -426,27 +420,7 @@ function setupFoodAutocomplete(){
 /* ============================================================
    HOME handlers
 ============================================================ */
-function repairProfileSelect(){
-  const sel = $("#activeProfile");
-  if(!sel) return;
-
-  // Si jamais iOS / cache / ancienne version => select incomplet, on le reconstruit
-  if(sel.options.length < PROFILE_LIST.length){
-    const labels = { alban:"Alban", ilir:"Ilir", afrim:"Afrim" };
-    sel.innerHTML = "";
-    for(const p of PROFILE_LIST){
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.textContent = labels[p] || p;
-      sel.appendChild(opt);
-    }
-  }
-}
-
 function setupHomeHandlers(){
-  repairProfileSelect();
-
-  // Date bar
   $("#btnPrevDay").addEventListener("click", ()=>{
     const d = $("#homeDate").value || todayISO();
     $("#homeDate").value = addDaysISO(d, -1);
@@ -457,15 +431,10 @@ function setupHomeHandlers(){
     $("#homeDate").value = addDaysISO(d, +1);
     renderHome();
   });
-
-  // IMPORTANT: iOS => showPicker pas dispo, donc click() est indispensable
   $("#btnOpenDate").addEventListener("click", ()=>{
-    const input = $("#homeDate");
-    input.showPicker?.();
-    input.focus();
-    input.click();
+    $("#homeDate").showPicker?.();
+    $("#homeDate").focus();
   });
-
   $("#homeDate").addEventListener("change", renderHome);
 
   $("#dayTrainingToggle").addEventListener("change", ()=>{
@@ -476,7 +445,6 @@ function setupHomeHandlers(){
 
   $("#btnRefreshHome").addEventListener("click", renderHome);
 
-  // grams input: sanitize (keeps "0,5")
   $("#qaGrams").addEventListener("input", (e)=>{
     const cur = e.target.value;
     const clean = sanitizeDecimalText(cur);
@@ -529,16 +497,6 @@ function setupHomeHandlers(){
     $("#qaNote").value = "";
 
     renderAll();
-  });
-
-  // Profile switch
-  $("#activeProfile").value = profile;
-  $("#btnProfileSwitch").addEventListener("click", ()=>{
-    const p = $("#activeProfile").value;
-    if(!PROFILE_LIST.includes(p)) return;
-    setActiveProfile(p);
-    loadProfile(p);
-    alert("Profil chargé ✅");
   });
 }
 
@@ -612,8 +570,34 @@ function sanitizeDecimalsOnInputs(selectors){
   });
 }
 
+function setupProfileHandlersInSettings(){
+  const sel = $("#activeProfileSettings");
+  const btn = $("#btnProfileSwitchSettings");
+  if(!sel || !btn) return;
+
+  sel.value = profile;
+
+  btn.addEventListener("click", ()=>{
+    const p = (sel.value || "").toLowerCase();
+    if(!PROFILE_LIST.includes(p)) return;
+    setActiveProfile(p);
+    loadProfile(p);
+    alert("Profil chargé ✅");
+  });
+
+  // wipe active profile only
+  $("#btnWipeActiveProfile").addEventListener("click", ()=>{
+    if(!confirm("Supprimer toutes les données du profil actif ?")) return;
+    localStorage.removeItem(keyFor(profile,"settings"));
+    localStorage.removeItem(keyFor(profile,"log"));
+    localStorage.removeItem(keyFor(profile,"weights"));
+    localStorage.removeItem(keyFor(profile,"dayflags"));
+    loadProfile(profile);
+    alert("Profil vidé ✅");
+  });
+}
+
 function setupSettingsHandlers(){
-  // sanitize numeric/decimal fields (fix iPhone reset)
   sanitizeDecimalsOnInputs([
     "#pAge","#pHeight","#pWeight","#pRate","#pProtKg","#pFatKg","#pFiber","#pSodium","#pWater","#pTrainingDelta","#pRestDelta","#wKg",
     "#fKcal","#fP","#fC","#fF","#fPortion"
@@ -655,10 +639,11 @@ function setupSettingsHandlers(){
     renderAll();
   });
 
-  // Export/Import
   $("#btnExport").addEventListener("click", exportBackup);
   $("#btnImport").addEventListener("click", ()=> $("#importFile").click());
   $("#importFile").addEventListener("change", importBackupFile);
+
+  setupProfileHandlersInSettings();
 }
 
 /* ============================================================
@@ -1010,7 +995,7 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.stroke();
   }
 
-  ctx.fillStyle = "rgba(226,232,240,0.85)";
+  ctx.fillStyle = "rgba(230,232,238,0.85)";
   ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
   ctx.fillText(opts?.title || "", padL, 14);
 
@@ -1020,7 +1005,7 @@ function drawLineChart(canvas, labels, values, opts){
     return;
   }
 
-  ctx.strokeStyle = "rgba(59,130,246,0.95)";
+  ctx.strokeStyle = "rgba(255,255,255,0.75)";
   ctx.lineWidth = 2;
 
   ctx.beginPath();
@@ -1031,7 +1016,7 @@ function drawLineChart(canvas, labels, values, opts){
   }
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(226,232,240,0.9)";
+  ctx.fillStyle = "rgba(230,232,238,0.9)";
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
     const y = padT + plotH * (1 - ((values[i]-lo)/range));
@@ -1040,7 +1025,7 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.fill();
   }
 
-  ctx.fillStyle = "rgba(148,163,184,0.9)";
+  ctx.fillStyle = "rgba(167,176,192,0.9)";
   const idxMid = Math.floor((n-1)/2);
   ctx.fillText(labels[0] || "", padL, H-10);
   ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 16, H-10);
@@ -1170,9 +1155,9 @@ function setupWeightsHandlers(){
 }
 
 /* ============================================================
-   BACKUP Export/Import
+   BACKUP Export/Import (iPhone friendly)
 ============================================================ */
-function exportBackup(){
+async function exportBackup(){
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -1190,10 +1175,29 @@ function exportBackup(){
     };
   }
 
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const json = JSON.stringify(payload, null, 2);
+  const filename = `nutrition-backup-${todayISO()}.json`;
+  const file = new File([json], filename, { type: "application/json" });
+
+  // ✅ iOS: ouvre la feuille de partage si possible
+  try{
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({
+        files: [file],
+        title: "Nutrition Track — Backup",
+        text: "Enregistrer dans Fichiers"
+      });
+      return;
+    }
+  }catch(e){
+    // fallback en dessous
+  }
+
+  // fallback download classique (iOS -> propose souvent “Fichiers”)
+  const blob = new Blob([json], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `nutrition-backup-${todayISO()}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -1223,7 +1227,7 @@ function importBackupFile(e){
         if(pack.settings) lsSet(keyFor(p,"settings"), pack.settings);
         if(Array.isArray(pack.log)) lsSet(keyFor(p,"log"), pack.log);
         if(Array.isArray(pack.weights)) lsSet(keyFor(p,"weights"), pack.weights);
-        if(Array.isArray(pack.dayflags)) lsSet(keyFor(p,"dayflags"), pack.dayflags);
+        if(pack.dayflags) lsSet(keyFor(p,"dayflags"), pack.dayflags);
       }
 
       const ap = (data.activeProfile || profile).toLowerCase();
@@ -1252,8 +1256,9 @@ function loadProfile(p){
   weights  = lsGet(keyFor(profile,"weights"), []);
   dayFlags = lsGet(keyFor(profile,"dayflags"), {});
 
-  repairProfileSelect();
-  $("#activeProfile").value = profile;
+  const sel = $("#activeProfileSettings");
+  if(sel) sel.value = profile;
+
   renderAll();
 }
 
@@ -1286,14 +1291,10 @@ function init(){
   setupWeightsHandlers();
   setupFoodAutocomplete();
 
-  repairProfileSelect();
-  $("#activeProfile").value = profile;
-
   renderAll();
   activateTab("home");
 }
 
-/* Run after DOM is ready */
 document.addEventListener("DOMContentLoaded", init);
 
 /* Extra: block pinch zoom on iOS (best effort) */

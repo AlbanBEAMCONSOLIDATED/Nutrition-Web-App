@@ -10,20 +10,18 @@
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b0f19" />
 
   <!-- iOS "app-like" -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Nutrition">
-  <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
 </head>
 
 <body>
-  <!-- SPLASH (2s via data-ms) -->
-  <div id="splash" class="splash" aria-hidden="true" data-ms="2000">
+  <!-- SPLASH (1s) -->
+  <div id="splash" class="splash" aria-hidden="true">
     <div class="splash__inner">
       <div class="splash__logo" aria-hidden="true">
         <span class="splashN">N</span>
@@ -31,9 +29,6 @@
       </div>
       <div class="splash__title">Nutrition · Track</div>
       <div class="splash__sub">Chargement…</div>
-      <div class="splash__bar" aria-hidden="true">
-        <div class="splash__barFill"></div>
-      </div>
     </div>
   </div>
 
@@ -65,27 +60,29 @@
 
         <div class="divider"></div>
 
-        <!-- Date style MyFitnessPal -->
+        <!-- Date bar (iPhone clean) -->
         <div class="dateBar">
-          <button class="iconBtn" type="button" id="btnPrevDay" aria-label="Jour précédent">←</button>
+          <div class="dateRow">
+            <button class="iconBtn" type="button" id="btnPrevDay" aria-label="Jour précédent">←</button>
 
-          <button class="dateBtn" type="button" id="btnOpenDate" aria-label="Choisir une date">
-            <span id="dateLabel">—</span>
-            <span class="dateBtn__ico" aria-hidden="true">📅</span>
-          </button>
+            <button class="dateBtn" type="button" id="btnOpenDate" aria-label="Choisir une date">
+              <span id="dateLabel">—</span>
+            </button>
 
-          <button class="iconBtn" type="button" id="btnNextDay" aria-label="Jour suivant">→</button>
+            <button class="iconBtn" type="button" id="btnNextDay" aria-label="Jour suivant">→</button>
 
-          <!-- IMPORTANT: pas display:none sinon iOS n'ouvre pas le picker -->
-          <input type="date" id="homeDate" class="dateHidden" />
+            <input type="date" id="homeDate" class="dateHidden" />
+          </div>
 
-          <div class="toggleBox">
-            <div class="toggleLabel">Jour entraînement</div>
-            <label class="switch">
-              <input type="checkbox" id="dayTrainingToggle" />
-              <span class="slider"></span>
-            </label>
-            <div class="toggleSub" id="dayTypeHint">Repos</div>
+          <div class="toggleRow">
+            <div class="toggleBox">
+              <div class="toggleLabel">Jour entraînement</div>
+              <label class="switch">
+                <input type="checkbox" id="dayTrainingToggle" />
+                <span class="slider"></span>
+              </label>
+              <div class="toggleSub" id="dayTypeHint">Repos</div>
+            </div>
           </div>
         </div>
 
@@ -97,23 +94,12 @@
             <ul class="coach__list" id="coachList"></ul>
           </div>
 
-          <div class="profileBox">
-            <div class="profileBox__title">Profil</div>
-            <div class="row">
-              <div class="field grow">
-                <label>Compte</label>
-                <select id="activeProfile">
-                  <option value="alban">Alban</option>
-                  <option value="ilir">Ilir</option>
-                  <option value="afrim">Afrim</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>&nbsp;</label>
-                <button class="btn" type="button" id="btnProfileSwitch">Charger</button>
-              </div>
+          <div class="cardInner">
+            <div class="cardInner__title">Résumé</div>
+            <div class="hint">
+              Profil actif + sauvegardes : tout est dans <b>Paramètres</b> (en bas).<br>
+              Ici = suivi rapide du jour.
             </div>
-            <div class="hint">Chaque profil a ses propres paramètres, journal, poids et stats. Base aliments = commune.</div>
           </div>
         </div>
 
@@ -297,6 +283,7 @@
                 <tbody></tbody>
               </table>
             </div>
+
           </div>
         </div>
 
@@ -416,16 +403,6 @@
               <button class="btn btn--primary" id="btnApplyCalculator" type="button">Appliquer → Objectifs du jour</button>
               <button class="btn" id="btnResetSettings" type="button">Réinitialiser</button>
             </div>
-
-            <div class="divider"></div>
-
-            <div class="cardInner__title">Sauvegarde (conseillé)</div>
-            <div class="hint">Si quelqu’un efface l’historique Safari, tout saute. Exporte un backup JSON et mets-le sur Drive/iCloud.</div>
-            <div class="actions">
-              <button class="btn" type="button" id="btnExport">Exporter JSON</button>
-              <button class="btn" type="button" id="btnImport">Importer JSON</button>
-              <input type="file" id="importFile" accept="application/json" style="display:none" />
-            </div>
           </div>
 
           <div class="cardInner">
@@ -450,6 +427,54 @@
             </div>
           </div>
         </div>
+
+        <div class="divider"></div>
+
+        <!-- PROFILS + EXPORT/IMPORT (tout en bas) -->
+        <div class="cardInner">
+          <div class="cardInner__title">Profil actif</div>
+
+          <div class="row">
+            <div class="field grow">
+              <label>Compte</label>
+              <select id="activeProfileSettings">
+                <option value="alban">Alban</option>
+                <option value="ilir">Ilir</option>
+                <option value="afrim">Afrim</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button class="btn btn--primary" type="button" id="btnProfileSwitchSettings">Charger</button>
+            </div>
+          </div>
+
+          <div class="hint">
+            Chaque profil garde ses propres paramètres, journal, poids et jours entraînement.
+            La base aliments reste commune.
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="cardInner__title">Sauvegarde (conseillé)</div>
+          <div class="hint">
+            iPhone : l’export ouvre la feuille de partage → choisis “Enregistrer dans Fichiers”.
+            Si quelqu’un supprime les données Safari du site, tout saute (c’est iOS), donc export = indispensable.
+          </div>
+
+          <div class="actions">
+            <button class="btn" type="button" id="btnExport">Exporter JSON</button>
+            <button class="btn" type="button" id="btnImport">Importer JSON</button>
+            <input type="file" id="importFile" accept="application/json" style="display:none" />
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="actions">
+            <button class="btn" type="button" id="btnWipeActiveProfile">Supprimer données du profil actif</button>
+          </div>
+        </div>
+
       </div>
     </section>
 
