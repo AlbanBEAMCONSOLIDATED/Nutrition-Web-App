@@ -64,29 +64,45 @@ function daysBackISO(n){
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
+function downloadText(filename, text){
+  const blob = new Blob([text], { type:"text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function readFileAsText(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result||""));
+    r.onerror = reject;
+    r.readAsText(file);
+  });
+}
 
 /* ============================================================
    STATE
 ============================================================ */
 const defaultSettings = {
-  // calculator inputs
   sex:"M", age:23, height:178, weight:95,
   activity:1.2, goal:"cut", rate:0.5,
   protKg:2.0, fatKg:0.7, fiber:30, sodium:2300, water:3.0,
 
-  // deltas for training/rest day
   trainingDelta: +200,
   restDelta: 0,
 
-  // daily goals (computed & applied)
   kcal:2200, p:170, c:220, f:70
 };
 
 let settings = lsGet(K_SETTINGS, structuredClone(defaultSettings));
 let foods    = lsGet(K_FOODS, []);
 let log      = lsGet(K_LOG, []);
-let weights  = lsGet(K_WEIGHTS, []);     // [{id,date,kg}]
-let dayFlags = lsGet(K_DAYFLAGS, {});    // { "YYYY-MM-DD": "training"|"rest" }
+let weights  = lsGet(K_WEIGHTS, []);
+let dayFlags = lsGet(K_DAYFLAGS, {});
 
 /* ============================================================
    CALC (Mifflin + Targets)
@@ -101,13 +117,11 @@ function calcTargetsFromInputs(s){
   const bmr = mifflinBMR(s);
   const tdee = bmr * Number(s.activity || 1.2);
 
-  // 1 kg ~ 7700 kcal
   const daily = (Number(s.rate || 0) * 7700) / 7;
 
   let delta = 0;
   if(s.goal === "cut") delta = -daily;
   else if(s.goal === "bulk") delta = +daily;
-  else delta = 0;
 
   const targetKcal = tdee + delta;
 
@@ -163,19 +177,16 @@ function totalsForDate(dateISO){
    KPI STATES + COACH
 ============================================================ */
 function kpiStateForCalories(pct){
-  // calories: <0.8 ok, 0.8-1 warn, >1 bad
   if(pct < 0.8) return {cls:"is-ok", badge:"OK"};
   if(pct <= 1.0) return {cls:"is-warn", badge:"À surveiller"};
   return {cls:"is-bad", badge:"Dépassé"};
 }
 function kpiStateForProtein(pct){
-  // protein: <0.7 bad, 0.7-0.9 warn, >=0.9 ok
   if(pct < 0.7) return {cls:"is-bad", badge:"Trop bas"};
   if(pct < 0.9) return {cls:"is-warn", badge:"Bas"};
   return {cls:"is-ok", badge:"Bon"};
 }
 function kpiStateGeneric(pct){
-  // gluc/fat: <0.8 warn, 0.8-1 ok, >1 bad (simple)
   if(pct < 0.8) return {cls:"is-warn", badge:"Bas"};
   if(pct <= 1.0) return {cls:"is-ok", badge:"OK"};
   return {cls:"is-bad", badge:"Trop"};
@@ -194,11 +205,9 @@ function getAlerts(consumed, targets, hourNow){
     out.push("Calories dépassées : reste light sur glucides ce soir.");
   }
   if(settings.fiber > 0 && hourNow >= 16){
-    // on n’a pas fibres dans log -> message simple “qualité”
     out.push("Fibres : pense légumes + fruit (objectif fibres dans paramètres).");
   }
 
-  // fallback
   if(out.length === 0){
     out.push("Régulier > parfait. Remplis le journal, ajuste ensuite.");
   }
@@ -207,23 +216,7 @@ function getAlerts(consumed, targets, hourNow){
 }
 
 /* ============================================================
-   UI: TABS
-============================================================ */
-function setupTabs(){
-  $$(".tab").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      $$(".tab").forEach(b=>b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-      const key = btn.dataset.tab;
-      $$(".panel").forEach(p=>p.classList.remove("is-active"));
-      $("#tab-"+key).classList.add("is-active");
-      if(key === "stats") renderCharts();
-    });
-  });
-}
-
-/* ============================================================
-   UI: HOME (KPI + progress + day toggle + coach)
+   DAY TYPE
 ============================================================ */
 function dayTypeFor(dateISO){
   return dayFlags[dateISO] || "rest";
@@ -234,20 +227,51 @@ function setDayType(dateISO, type){
 }
 
 function effectiveTargetsForDate(dateISO){
-  // base from settings (applied)
   const base = {kcal:+settings.kcal||0, p:+settings.p||0, c:+settings.c||0, f:+settings.f||0};
   const type = dayTypeFor(dateISO);
   const delta = (type === "training") ? (+settings.trainingDelta||0) : (+settings.restDelta||0);
   const kcal = Math.max(0, base.kcal + delta);
 
-  // Option simple: on met tout le delta en glucides (plus logique visuellement)
-  // carbs += delta/4 si delta positif ; si négatif, carb baisse (clamp >=0)
   let c = base.c + (delta/4);
   c = Math.max(0, c);
 
   return {kcal, p:base.p, c, f:base.f, delta, type};
 }
 
+/* ============================================================
+   UI: TABS (bottom tabbar)
+============================================================ */
+function setTopSubtitleForTab(key){
+  const el = $("#topSubtitle");
+  const map = {
+    home: "Aujourd’hui · Objectifs + saisie rapide",
+    stats: "Graphiques · tendances",
+    settings: "Calculateur · objectifs",
+    foods: "Base aliments · favoris · import",
+    log: "Journal · détails"
+  };
+  el.textContent = map[key] || "Suivi & pilotage · Offline";
+}
+
+function setupTabs(){
+  $$(".tab").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      $$(".tab").forEach(b=>b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+
+      const key = btn.dataset.tab;
+      $$(".panel").forEach(p=>p.classList.remove("is-active"));
+      $("#tab-"+key).classList.add("is-active");
+
+      setTopSubtitleForTab(key);
+      if(key === "stats") renderCharts();
+    });
+  });
+}
+
+/* ============================================================
+   UI: HOME
+============================================================ */
 function setChip(id, remaining, unit){
   const el = $(id);
   el.textContent = `Restant ${fmt0(remaining)} ${unit}`;
@@ -264,7 +288,7 @@ function setKpiBlock(key, consumed, target, unit, stateFn){
   card.classList.remove("is-ok","is-warn","is-bad");
 
   const pctRaw = (target > 0) ? (consumed/target) : 0;
-  const pct = clamp(pctRaw, 0, 1.2); // clamp dépassement
+  const pct = clamp(pctRaw, 0, 1.2);
   const st = stateFn(pctRaw);
 
   card.classList.add(st.cls);
@@ -272,7 +296,6 @@ function setKpiBlock(key, consumed, target, unit, stateFn){
 
   $("#val_"+key).textContent = fmt0(consumed);
   $("#sub_"+key).textContent = `${fmt0(consumed)} / ${fmt0(target)} ${unit}`;
-
   $("#bar_"+key).style.width = `${Math.round(pct*100)}%`;
 }
 
@@ -280,7 +303,6 @@ function renderHome(){
   const date = $("#homeDate").value || todayISO();
   $("#homeDate").value = date;
 
-  // toggle day type
   const type = dayTypeFor(date);
   const toggle = $("#dayTrainingToggle");
   toggle.checked = (type === "training");
@@ -299,7 +321,6 @@ function renderHome(){
   setChip("#chip_c",   targets.c   - consumed.c, "g");
   setChip("#chip_f",   targets.f   - consumed.f, "g");
 
-  // Coach
   const hour = new Date().getHours();
   const alerts = getAlerts(consumed, targets, hour);
   const ul = $("#coachList");
@@ -312,9 +333,7 @@ function renderHome(){
 }
 
 function setupHomeHandlers(){
-  $("#homeDate").addEventListener("change", ()=>{
-    renderHome();
-  });
+  $("#homeDate").addEventListener("change", renderHome);
 
   $("#dayTrainingToggle").addEventListener("change", ()=>{
     const date = $("#homeDate").value || todayISO();
@@ -322,11 +341,8 @@ function setupHomeHandlers(){
     renderHome();
   });
 
-  $("#btnRefreshHome").addEventListener("click", ()=>{
-    renderHome();
-  });
+  $("#btnRefreshHome").addEventListener("click", renderHome);
 
-  // quick add + portion buttons
   $("#btnPlus50").addEventListener("click", ()=>{
     $("#qaGrams").value = Math.max(1, (+$("#qaGrams").value||0) + 50);
   });
@@ -359,7 +375,7 @@ function setupHomeHandlers(){
 
     const food = findFoodByName(foodName);
     if(!food){
-      alert("Aliment introuvable. Ajoute-le dans Base aliments.");
+      alert("Aliment introuvable. Ajoute-le dans Base aliments ou importe ton CSV.");
       return;
     }
 
@@ -468,7 +484,7 @@ function setupSettingsHandlers(){
 }
 
 /* ============================================================
-   UI: FOODS (search + fav + portion)
+   UI: FOODS (seed + fav + import/export CSV)
 ============================================================ */
 function seedFoodsStarter(){
   const starter = [
@@ -562,6 +578,48 @@ function renderFoodsTable(){
   });
 }
 
+/* --- CSV import (colonnes attendues: name,category,kcal100,p100,g100,l100,portionGrams) --- */
+function parseCsv(text){
+  const lines = text.replace(/\r/g,"").split("\n").filter(Boolean);
+  if(lines.length < 2) return [];
+  const header = lines[0].split(",").map(s=>s.trim());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = lines[i].split(",").map(s=>s.trim());
+    const obj = {};
+    header.forEach((h,idx)=> obj[h] = (cols[idx] ?? ""));
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function importFoodsFromCsvText(csvText){
+  const rows = parseCsv(csvText);
+
+  let added = 0;
+  for(const r of rows){
+    const name = String(r.name || r.Nom || "").trim();
+    if(!name) continue;
+    if(findFoodByName(name)) continue;
+
+    foods.push({
+      id: uid(),
+      favorite: false,
+      name,
+      category: String(r.category || r.Categorie || "").trim(),
+      kcal100: Number(r.kcal100 || r.kcal || 0),
+      p100: Number(r.p100 || r.p || 0),
+      g100: Number(r.g100 || r.c || r.glucides || 0),
+      l100: Number(r.l100 || r.f || r.lipides || 0),
+      portionGrams: Number(r.portionGrams || r.portion || 0) || 0
+    });
+    added++;
+  }
+
+  lsSet(K_FOODS, foods);
+  return added;
+}
+
 function setupFoodHandlers(){
   $("#foodForm").addEventListener("submit", (e)=>{
     e.preventDefault();
@@ -606,10 +664,37 @@ function setupFoodHandlers(){
     $(sel).addEventListener("input", renderFoodsTable);
     $(sel).addEventListener("change", renderFoodsTable);
   });
+
+  // Import CSV aliments
+  $("#btnImportFoodsCsv").addEventListener("click", ()=>{
+    $("#foodsCsvFile").click();
+  });
+
+  $("#foodsCsvFile").addEventListener("change", async ()=>{
+    const file = $("#foodsCsvFile").files?.[0];
+    $("#foodsCsvFile").value = "";
+    if(!file) return;
+
+    try{
+      const text = await readFileAsText(file);
+      const added = importFoodsFromCsvText(text);
+      renderAll();
+      alert(`Import terminé ✅\nAliments ajoutés: ${added}`);
+    }catch(err){
+      console.error(err);
+      alert("Import CSV échoué.");
+    }
+  });
+
+  // Export aliments JSON
+  $("#btnExportFoodsJson").addEventListener("click", ()=>{
+    const payload = JSON.stringify(foods, null, 2);
+    downloadText(`foods_${todayISO()}.json`, payload);
+  });
 }
 
 /* ============================================================
-   UI: LOG GROUPED (date -> meal -> items)
+   UI: LOG GROUPED
 ============================================================ */
 function inRangeByDays(dateISO, days){
   if(!days || days<=0) return true;
@@ -623,7 +708,6 @@ function renderLogGrouped(){
   const term = ($("#logSearch").value||"").trim().toLowerCase();
   const range = Number($("#logRange").value||0);
 
-  // filter
   let items = log.filter(it => inRangeByDays(it.date, range));
   if(term){
     items = items.filter(it =>
@@ -634,7 +718,6 @@ function renderLogGrouped(){
     );
   }
 
-  // group by date desc
   const byDate = new Map();
   for(const it of items){
     if(!byDate.has(it.date)) byDate.set(it.date, []);
@@ -662,7 +745,6 @@ function renderLogGrouped(){
 
     const itemsDate = byDate.get(d);
 
-    // group by meal
     const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
     const byMeal = new Map();
     for(const it of itemsDate){
@@ -674,7 +756,6 @@ function renderLogGrouped(){
       if(!byMeal.has(meal)) continue;
       const arr = byMeal.get(meal);
 
-      // totals meal
       let kcal=0,p=0,c=0,f=0;
       for(const it of arr){
         const food = findFoodByName(it.foodName);
@@ -751,7 +832,7 @@ function setupLogHandlers(){
 }
 
 /* ============================================================
-   CHARTS (canvas simple, sans librairie)
+   CHARTS
 ============================================================ */
 function movingAverage(values, window){
   const w = Number(window||0);
@@ -771,7 +852,6 @@ function drawLineChart(canvas, labels, values, opts){
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
-  // background
   ctx.fillStyle = "rgba(0,0,0,0.10)";
   ctx.fillRect(0,0,W,H);
 
@@ -787,7 +867,6 @@ function drawLineChart(canvas, labels, values, opts){
 
   const range = Math.max(1e-9, hi - lo);
 
-  // grid
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
   for(let i=0;i<=4;i++){
@@ -798,12 +877,10 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.stroke();
   }
 
-  // axes text
   ctx.fillStyle = "rgba(226,232,240,0.85)";
   ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
   ctx.fillText(opts?.title || "", padL, 14);
 
-  // line
   ctx.strokeStyle = "rgba(59,130,246,0.95)";
   ctx.lineWidth = 2;
 
@@ -821,7 +898,6 @@ function drawLineChart(canvas, labels, values, opts){
   }
   ctx.stroke();
 
-  // points
   ctx.fillStyle = "rgba(226,232,240,0.9)";
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
@@ -831,14 +907,12 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.fill();
   }
 
-  // x labels (start/mid/end)
   ctx.fillStyle = "rgba(148,163,184,0.9)";
   const idxMid = Math.floor((n-1)/2);
   ctx.fillText(labels[0] || "", padL, H-12);
   ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 16, H-12);
   ctx.fillText(labels[n-1] || "", padL + plotW - 30, H-12);
 
-  // y labels (min/max)
   ctx.fillText(String(Math.round(hi)), 6, padT+10);
   ctx.fillText(String(Math.round(lo)), 6, padT+plotH);
 }
@@ -848,7 +922,7 @@ function seriesForLastDays(days){
   const valuesK = [], valuesP=[], valuesC=[], valuesF=[];
   for(let i=days-1;i>=0;i--){
     const d = daysBackISO(i);
-    labels.push(d.slice(5)); // MM-DD
+    labels.push(d.slice(5));
     const t = totalsForDate(d);
     valuesK.push(t.kcal);
     valuesP.push(t.p);
@@ -859,7 +933,6 @@ function seriesForLastDays(days){
 }
 
 function renderCharts(){
-  // Macros chart
   const days = Number($("#statsRange").value||30);
   const metric = $("#statsMetric").value;
   const smooth = Number($("#statsSmooth").value||0);
@@ -877,7 +950,6 @@ function renderCharts(){
   drawLineChart($("#macroChart"), labels, values, { title });
   $("#macroChartHint").textContent = `Fenêtre: ${days} jours · Lissage: ${smooth ? (smooth+" jours") : "aucun"} · Source: Journal repas`;
 
-  // Weight chart
   renderWeightsTable();
   renderWeightChart();
 }
@@ -891,7 +963,6 @@ function renderWeightChart(){
     return;
   }
 
-  // take last 20
   const slice = sorted.slice(Math.max(0, sorted.length-20));
   const labels = slice.map(x=> x.date.slice(5));
   const values = slice.map(x=> Number(x.kg||0));
@@ -957,10 +1028,64 @@ function setupWeightsHandlers(){
 }
 
 /* ============================================================
+   BACKUP (Export / Import de tout)
+============================================================ */
+function exportAllData(){
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings, foods, log, weights, dayFlags
+  };
+  downloadText(`nutrition_backup_${todayISO()}.json`, JSON.stringify(payload, null, 2));
+}
+
+async function importAllData(){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+  input.click();
+
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if(!file) return;
+
+    try{
+      const text = await readFileAsText(file);
+      const data = JSON.parse(text);
+
+      if(!data || typeof data !== "object") throw new Error("bad json");
+
+      // on garde tes structures, sans casser
+      settings = data.settings || settings;
+      foods    = Array.isArray(data.foods) ? data.foods : foods;
+      log      = Array.isArray(data.log) ? data.log : log;
+      weights  = Array.isArray(data.weights) ? data.weights : weights;
+      dayFlags = data.dayFlags || dayFlags;
+
+      lsSet(K_SETTINGS, settings);
+      lsSet(K_FOODS, foods);
+      lsSet(K_LOG, log);
+      lsSet(K_WEIGHTS, weights);
+      lsSet(K_DAYFLAGS, dayFlags);
+
+      renderAll();
+      alert("Import terminé ✅");
+    }catch(e){
+      console.error(e);
+      alert("Import échoué (fichier invalide).");
+    }
+  };
+}
+
+function setupBackupHandlers(){
+  $("#btnExportData")?.addEventListener("click", exportAllData);
+  $("#btnImportData")?.addEventListener("click", importAllData);
+}
+
+/* ============================================================
    INIT + RENDER ALL
 ============================================================ */
 function renderAll(){
-  // ensure starter base
   if(!foods || foods.length === 0){
     foods = [];
     seedFoodsStarter();
@@ -977,13 +1102,12 @@ function renderAll(){
 
 function init(){
   setupTabs();
+  setupBackupHandlers();
+
   setupHomeHandlers();
   setupSettingsHandlers();
   setupFoodHandlers();
   setupLogHandlers();
   setupWeightsHandlers();
 
-  renderAll();
-}
-
-init();
+  s
