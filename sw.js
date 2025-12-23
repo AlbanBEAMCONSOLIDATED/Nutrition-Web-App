@@ -1,4 +1,4 @@
-const CACHE_NAME = "nutrition-cache-v1";
+const CACHE_NAME = "nutrition-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -33,7 +33,6 @@ self.addEventListener("fetch", (event) => {
       if (cached) return cached;
       return fetch(req)
         .then((res) => {
-          // cache GET same-origin
           const url = new URL(req.url);
           if (req.method === "GET" && url.origin === location.origin) {
             const copy = res.clone();

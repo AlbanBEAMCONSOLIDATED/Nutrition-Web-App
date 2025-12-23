@@ -74,6 +74,21 @@ function numVal(v){
 }
 
 /* ============================================================
+   SPLASH (2s)
+============================================================ */
+function setupSplash(){
+  const splash = document.getElementById("splash");
+  if(!splash) return;
+
+  // CSS already fades after 2s, but this is a safety fallback
+  setTimeout(() => {
+    splash.style.opacity = "0";
+    splash.style.pointerEvents = "none";
+    splash.style.visibility = "hidden";
+  }, 2400);
+}
+
+/* ============================================================
    STATE
 ============================================================ */
 const defaultSettings = {
@@ -202,19 +217,16 @@ function getAlerts(consumed, targets, hourNow){
 }
 
 /* ============================================================
-   NAV / TABS (robuste desktop + bottom nav mobile)
+   NAV / TABS
 ============================================================ */
 function activateTab(key){
-  // highlight top tabs + bottom tabs
   $$(".tab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
   $$(".btab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
 
-  // show panel
   $$(".panel").forEach(p => p.classList.remove("is-active"));
   const panel = $("#tab-" + key);
   if(panel) panel.classList.add("is-active");
 
-  // refresh charts when needed
   if(key === "stats") renderCharts();
 }
 
@@ -310,7 +322,7 @@ function renderHome(){
 }
 
 /* ============================================================
-   Autocomplete iOS pour #qaFood (datalist fallback)
+   Autocomplete iOS pour #qaFood
 ============================================================ */
 function setupFoodAutocomplete(){
   const input = $("#qaFood");
@@ -324,7 +336,6 @@ function setupFoodAutocomplete(){
     box.innerHTML = "";
     if(!t){ hide(); return; }
 
-    // take max 30
     const matches = foods
       .filter(f => f.name.toLowerCase().includes(t))
       .slice(0, 30);
@@ -352,7 +363,6 @@ function setupFoodAutocomplete(){
     hide();
   });
 
-  // if user hits enter, keep value
   input.addEventListener("keydown", (e) => {
     if(e.key === "Escape") hide();
   });
@@ -788,8 +798,23 @@ function setupLogHandlers(){
 }
 
 /* ============================================================
-   CHARTS (canvas simple)
+   CHARTS (canvas responsive iPhone)
 ============================================================ */
+function fitCanvasToCSS(canvas){
+  const rect = canvas.getBoundingClientRect();
+  const cssW = Math.max(280, Math.floor(rect.width));
+  const cssH = Math.max(140, Math.floor(rect.height));
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+
+  canvas.width = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return { cssW, cssH };
+}
+
 function movingAverage(values, window){
   const w = Number(window||0);
   if(!w || w<=1) return values;
@@ -805,7 +830,8 @@ function movingAverage(values, window){
 
 function drawLineChart(canvas, labels, values, opts){
   const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
+  const { cssW: W, cssH: H } = fitCanvasToCSS(canvas);
+
   ctx.clearRect(0,0,W,H);
 
   ctx.fillStyle = "rgba(0,0,0,0.10)";
@@ -980,6 +1006,16 @@ function setupWeightsHandlers(){
   $("#statsRange").addEventListener("change", renderCharts);
   $("#statsMetric").addEventListener("change", renderCharts);
   $("#statsSmooth").addEventListener("change", renderCharts);
+
+  // resize -> redraw for iPhone rotations
+  let t = null;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(t);
+    t = setTimeout(()=>{
+      const activeStats = document.getElementById("tab-stats")?.classList.contains("is-active");
+      if(activeStats) renderCharts();
+    }, 150);
+  });
 }
 
 /* ============================================================
@@ -1001,6 +1037,7 @@ function renderAll(){
 }
 
 function init(){
+  setupSplash();
   setupTabs();
   setupHomeHandlers();
   setupSettingsHandlers();
@@ -1011,9 +1048,7 @@ function init(){
 
   renderAll();
 
-  // Ensure default active tab (safety)
   activateTab("home");
 }
 
-/* Run after DOM is ready => fixes “buttons don’t work” */
 document.addEventListener("DOMContentLoaded", init);

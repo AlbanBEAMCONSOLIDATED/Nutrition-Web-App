@@ -2,8 +2,12 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Nutrition — Mini App</title>
+
+  <!-- iPhone: app-like + no zoom -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+
+  <title>Nutrition · Track</title>
 
   <link rel="stylesheet" href="styles.css" />
 
@@ -19,13 +23,31 @@
 </head>
 
 <body>
+  <!-- Splash (2s) -->
+  <div id="splash" class="splash" aria-hidden="true">
+    <div class="splash__glass">
+      <div class="splash__logo" aria-hidden="true">
+        <div class="splash__ring"></div>
+        <div class="splash__core">🍏</div>
+      </div>
+      <div class="splash__title">Nutrition</div>
+      <div class="splash__sub">Track · Macros · Progress</div>
+      <div class="splash__sub">Alban.Bicaj </div>
+
+
+      <div class="splash__dots" aria-hidden="true">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="brand">
-      <div class="brand__title">Nutrition — Mini App</div>
+      <div class="brand__title">Nutrition · Track</div>
       <div class="brand__sub">Suivi & pilotage · Offline</div>
     </div>
 
-    <!-- Tabs desktop (reste comme avant) -->
+    <!-- Tabs desktop -->
     <nav class="tabs tabs--top" aria-label="Navigation principale">
       <button class="tab is-active" type="button" data-tab="home">Accueil</button>
       <button class="tab" type="button" data-tab="stats">Graphiques</button>
@@ -35,7 +57,7 @@
     </nav>
   </header>
 
-  <main class="container">
+  <main class="container" id="appScroll">
     <!-- ACCUEIL -->
     <section class="panel is-active" id="tab-home">
       <div class="card">
@@ -135,14 +157,10 @@
 
           <div class="field grow">
             <label>Aliment</label>
-
-            <!-- Input iPhone-friendly -->
             <div class="autoWrap">
               <input id="qaFood" list="foodsDatalist" placeholder="Ex: Poulet (blanc cuit)" inputmode="search" />
               <div class="autoList" id="qaFoodAuto"></div>
             </div>
-
-            <!-- datalist (fallback desktop / certains navigateurs) -->
             <datalist id="foodsDatalist"></datalist>
           </div>
 
@@ -215,7 +233,7 @@
               </div>
             </div>
 
-            <canvas id="macroChart" width="900" height="320" class="chart"></canvas>
+            <canvas id="macroChart" class="chart"></canvas>
             <div class="hint" id="macroChartHint"></div>
           </div>
 
@@ -229,14 +247,13 @@
               </div>
               <div class="field">
                 <label>Poids (kg)</label>
-                <!-- step=0.01 pour 2 décimales + inputmode decimal -->
                 <input type="number" id="wKg" min="30" max="250" step="0.01" inputmode="decimal" placeholder="Ex: 88.60" />
               </div>
               <button class="btn btn--primary" type="submit">Ajouter</button>
               <button class="btn" type="button" id="btnClearWeights">Vider</button>
             </form>
 
-            <canvas id="weightChart" width="900" height="260" class="chart"></canvas>
+            <canvas id="weightChart" class="chart chart--small"></canvas>
 
             <div class="divider"></div>
 
@@ -508,7 +525,7 @@
     </section>
   </main>
 
-  <!-- Bottom nav mobile “iPhone app” -->
+  <!-- Bottom nav mobile -->
   <nav class="bottomNav" aria-label="Navigation basse">
     <button class="btab is-active" type="button" data-tab="home" aria-label="Accueil">
       <span class="ico">🏠</span><span>Accueil</span>
