@@ -74,18 +74,43 @@ function numVal(v){
 }
 
 /* ============================================================
-   SPLASH (2s)
+   iPhone decimal inputs: allow "." and "," without Safari reset
 ============================================================ */
-function setupSplash(){
-  const splash = document.getElementById("splash");
-  if(!splash) return;
+function sanitizeDecimalInput(str){
+  let s = String(str ?? "");
 
-  // CSS already fades after 2s, but this is a safety fallback
-  setTimeout(() => {
-    splash.style.opacity = "0";
-    splash.style.pointerEvents = "none";
-    splash.style.visibility = "hidden";
-  }, 2400);
+  // keep digits + separators + minus
+  s = s.replace(/[^\d.,-]/g, "");
+
+  // only one leading "-"
+  s = s.replace(/(?!^)-/g, "");
+
+  // keep only first separator (either "." or ",")
+  const idxDot = s.indexOf(".");
+  const idxCom = s.indexOf(",");
+  const candidates = [idxDot, idxCom].filter(i => i !== -1);
+  if(candidates.length){
+    const firstSepIndex = Math.min(...candidates);
+    const head = s.slice(0, firstSepIndex + 1);
+    const tail = s.slice(firstSepIndex + 1).replace(/[.,]/g, "");
+    s = head + tail;
+  }
+
+  return s;
+}
+
+function setupDecimalInputs(){
+  const inputs = $$('input[data-decimal="1"]');
+  inputs.forEach(inp => {
+    inp.setAttribute("inputmode", "decimal");
+    inp.setAttribute("autocomplete", "off");
+
+    inp.addEventListener("input", () => {
+      const before = inp.value;
+      const after = sanitizeDecimalInput(before);
+      if(before !== after) inp.value = after;
+    });
+  });
 }
 
 /* ============================================================
@@ -217,7 +242,7 @@ function getAlerts(consumed, targets, hourNow){
 }
 
 /* ============================================================
-   NAV / TABS
+   NAV / TABS (robuste desktop + bottom nav mobile)
 ============================================================ */
 function activateTab(key){
   $$(".tab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
@@ -322,7 +347,7 @@ function renderHome(){
 }
 
 /* ============================================================
-   Autocomplete iOS pour #qaFood
+   Autocomplete iOS pour #qaFood (datalist fallback)
 ============================================================ */
 function setupFoodAutocomplete(){
   const input = $("#qaFood");
@@ -798,23 +823,8 @@ function setupLogHandlers(){
 }
 
 /* ============================================================
-   CHARTS (canvas responsive iPhone)
+   CHARTS (canvas simple + responsive iPhone)
 ============================================================ */
-function fitCanvasToCSS(canvas){
-  const rect = canvas.getBoundingClientRect();
-  const cssW = Math.max(280, Math.floor(rect.width));
-  const cssH = Math.max(140, Math.floor(rect.height));
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-
-  canvas.width = Math.floor(cssW * dpr);
-  canvas.height = Math.floor(cssH * dpr);
-
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  return { cssW, cssH };
-}
-
 function movingAverage(values, window){
   const w = Number(window||0);
   if(!w || w<=1) return values;
@@ -830,8 +840,19 @@ function movingAverage(values, window){
 
 function drawLineChart(canvas, labels, values, opts){
   const ctx = canvas.getContext("2d");
-  const { cssW: W, cssH: H } = fitCanvasToCSS(canvas);
 
+  // responsive sizing
+  const cssW = canvas.clientWidth || 300;
+  const cssH = parseFloat(getComputedStyle(canvas).height) || 220;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.max(1, Math.round(cssW * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
+
+  // draw in CSS pixel coordinates
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const W = cssW, H = cssH;
   ctx.clearRect(0,0,W,H);
 
   ctx.fillStyle = "rgba(0,0,0,0.10)";
@@ -863,14 +884,14 @@ function drawLineChart(canvas, labels, values, opts){
   ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
   ctx.fillText(opts?.title || "", padL, 14);
 
-  ctx.strokeStyle = "rgba(59,130,246,0.95)";
-  ctx.lineWidth = 2;
-
   const n = values.length;
   if(n <= 1){
     ctx.fillText("Pas assez de données", padL, padT + 20);
     return;
   }
+
+  ctx.strokeStyle = "rgba(59,130,246,0.95)";
+  ctx.lineWidth = 2;
 
   ctx.beginPath();
   for(let i=0;i<n;i++){
@@ -1007,15 +1028,10 @@ function setupWeightsHandlers(){
   $("#statsMetric").addEventListener("change", renderCharts);
   $("#statsSmooth").addEventListener("change", renderCharts);
 
-  // resize -> redraw for iPhone rotations
-  let t = null;
+  // redraw on resize (iphone rotation)
   window.addEventListener("resize", ()=>{
-    clearTimeout(t);
-    t = setTimeout(()=>{
-      const activeStats = document.getElementById("tab-stats")?.classList.contains("is-active");
-      if(activeStats) renderCharts();
-    }, 150);
-  });
+    if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
+  }, { passive:true });
 }
 
 /* ============================================================
@@ -1037,7 +1053,6 @@ function renderAll(){
 }
 
 function init(){
-  setupSplash();
   setupTabs();
   setupHomeHandlers();
   setupSettingsHandlers();
@@ -1045,9 +1060,9 @@ function init(){
   setupLogHandlers();
   setupWeightsHandlers();
   setupFoodAutocomplete();
+  setupDecimalInputs();
 
   renderAll();
-
   activateTab("home");
 }
 

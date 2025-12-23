@@ -2,12 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-
-  <!-- iPhone: app-like + no zoom -->
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-
-  <title>Nutrition · Track</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Nutrition — Mini App</title>
 
   <link rel="stylesheet" href="styles.css" />
 
@@ -23,28 +19,15 @@
 </head>
 
 <body>
-  <!-- Splash (2s) -->
-  <div id="splash" class="splash" aria-hidden="true">
-    <div class="splash__glass">
-      <div class="splash__logo" aria-hidden="true">
-        <div class="splash__ring"></div>
-        <div class="splash__core">🍏</div>
-      </div>
-      <div class="splash__title">Nutrition</div>
-      <div class="splash__sub">Track · Macros · Progress</div>
-      <div class="splash__sub">Alban.Bicaj </div>
-
-
-      <div class="splash__dots" aria-hidden="true">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      </div>
-    </div>
-  </div>
-
   <header class="topbar">
     <div class="brand">
-      <div class="brand__title">Nutrition · Track</div>
-      <div class="brand__sub">Suivi & pilotage · Offline</div>
+      <div class="brandRow">
+        <div class="logoN" aria-hidden="true">N</div>
+        <div>
+          <div class="brand__title">Nutrition — Mini App</div>
+          <div class="brand__sub">Suivi & pilotage · Offline</div>
+        </div>
+      </div>
     </div>
 
     <!-- Tabs desktop -->
@@ -57,7 +40,7 @@
     </nav>
   </header>
 
-  <main class="container" id="appScroll">
+  <main class="container">
     <!-- ACCUEIL -->
     <section class="panel is-active" id="tab-home">
       <div class="card">
@@ -157,10 +140,14 @@
 
           <div class="field grow">
             <label>Aliment</label>
+
+            <!-- Input iPhone-friendly -->
             <div class="autoWrap">
               <input id="qaFood" list="foodsDatalist" placeholder="Ex: Poulet (blanc cuit)" inputmode="search" />
               <div class="autoList" id="qaFoodAuto"></div>
             </div>
+
+            <!-- datalist fallback -->
             <datalist id="foodsDatalist"></datalist>
           </div>
 
@@ -247,13 +234,14 @@
               </div>
               <div class="field">
                 <label>Poids (kg)</label>
-                <input type="number" id="wKg" min="30" max="250" step="0.01" inputmode="decimal" placeholder="Ex: 88.60" />
+                <!-- iPhone safe decimal -->
+                <input type="text" id="wKg" data-decimal="1" inputmode="decimal" placeholder="Ex: 88.60" />
               </div>
               <button class="btn btn--primary" type="submit">Ajouter</button>
               <button class="btn" type="button" id="btnClearWeights">Vider</button>
             </form>
 
-            <canvas id="weightChart" class="chart chart--small"></canvas>
+            <canvas id="weightChart" class="chart"></canvas>
 
             <div class="divider"></div>
 
@@ -307,7 +295,7 @@
 
               <div class="field">
                 <label>Poids (kg)</label>
-                <input type="number" id="pWeight" min="30" max="250" step="0.01" inputmode="decimal" />
+                <input type="text" id="pWeight" data-decimal="1" inputmode="decimal" />
               </div>
             </div>
 
@@ -334,7 +322,7 @@
 
               <div class="field">
                 <label>Rythme visé (kg/semaine)</label>
-                <input type="number" id="pRate" min="0" max="1.5" step="0.01" inputmode="decimal" />
+                <input type="text" id="pRate" data-decimal="1" inputmode="decimal" />
               </div>
             </div>
 
@@ -343,12 +331,12 @@
             <div class="row">
               <div class="field">
                 <label>Protéines (g/kg)</label>
-                <input type="number" id="pProtKg" min="1.2" max="3" step="0.01" inputmode="decimal" />
+                <input type="text" id="pProtKg" data-decimal="1" inputmode="decimal" />
               </div>
 
               <div class="field">
                 <label>Lipides minimum (g/kg)</label>
-                <input type="number" id="pFatKg" min="0.3" max="1.2" step="0.01" inputmode="decimal" />
+                <input type="text" id="pFatKg" data-decimal="1" inputmode="decimal" />
               </div>
 
               <div class="field">
@@ -363,7 +351,7 @@
 
               <div class="field">
                 <label>Eau cible (L/j)</label>
-                <input type="number" id="pWater" min="0" max="10" step="0.01" inputmode="decimal" />
+                <input type="text" id="pWater" data-decimal="1" inputmode="decimal" />
               </div>
             </div>
 
@@ -450,19 +438,19 @@
           </div>
           <div class="field">
             <label>kcal/100g</label>
-            <input type="number" id="fKcal" step="0.01" inputmode="decimal" />
+            <input type="text" id="fKcal" data-decimal="1" inputmode="decimal" />
           </div>
           <div class="field">
             <label>P/100g</label>
-            <input type="number" id="fP" step="0.01" inputmode="decimal" />
+            <input type="text" id="fP" data-decimal="1" inputmode="decimal" />
           </div>
           <div class="field">
             <label>G/100g</label>
-            <input type="number" id="fC" step="0.01" inputmode="decimal" />
+            <input type="text" id="fC" data-decimal="1" inputmode="decimal" />
           </div>
           <div class="field">
             <label>L/100g</label>
-            <input type="number" id="fF" step="0.01" inputmode="decimal" />
+            <input type="text" id="fF" data-decimal="1" inputmode="decimal" />
           </div>
           <div class="field">
             <label>Portion (g)</label>
@@ -550,7 +538,6 @@
 
   <script src="app.js"></script>
   <script>
-    // SW (PWA)
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("./sw.js").catch(console.error);
