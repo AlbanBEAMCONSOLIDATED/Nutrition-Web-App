@@ -64,24 +64,13 @@ function daysBackISO(n){
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
-function downloadText(filename, text){
-  const blob = new Blob([text], { type:"text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-function readFileAsText(file){
-  return new Promise((resolve, reject)=>{
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result||""));
-    r.onerror = reject;
-    r.readAsText(file);
-  });
+
+/* iPhone decimal fix: accept "1,25" or "1.25" */
+function numVal(v){
+  if(v === null || v === undefined) return 0;
+  const s = String(v).trim().replace(",", ".");
+  const x = Number(s);
+  return Number.isFinite(x) ? x : 0;
 }
 
 /* ============================================================
@@ -91,10 +80,8 @@ const defaultSettings = {
   sex:"M", age:23, height:178, weight:95,
   activity:1.2, goal:"cut", rate:0.5,
   protKg:2.0, fatKg:0.7, fiber:30, sodium:2300, water:3.0,
-
   trainingDelta: +200,
   restDelta: 0,
-
   kcal:2200, p:170, c:220, f:70
 };
 
@@ -122,6 +109,7 @@ function calcTargetsFromInputs(s){
   let delta = 0;
   if(s.goal === "cut") delta = -daily;
   else if(s.goal === "bulk") delta = +daily;
+  else delta = 0;
 
   const targetKcal = tdee + delta;
 
@@ -151,13 +139,13 @@ function findFoodByName(name){
 }
 
 function macrosForItem(food, grams){
-  const g = Number(grams || 0);
+  const g = numVal(grams);
   const factor = g / 100;
   return {
-    kcal: (Number(food.kcal100) * factor),
-    p: (Number(food.p100) * factor),
-    c: (Number(food.g100) * factor),
-    f: (Number(food.l100) * factor)
+    kcal: (numVal(food.kcal100) * factor),
+    p: (numVal(food.p100) * factor),
+    c: (numVal(food.g100) * factor),
+    f: (numVal(food.l100) * factor)
   };
 }
 
@@ -207,20 +195,45 @@ function getAlerts(consumed, targets, hourNow){
   if(settings.fiber > 0 && hourNow >= 16){
     out.push("Fibres : pense légumes + fruit (objectif fibres dans paramètres).");
   }
-
   if(out.length === 0){
     out.push("Régulier > parfait. Remplis le journal, ajuste ensuite.");
   }
-
   return out.slice(0,4);
 }
 
 /* ============================================================
-   DAY TYPE
+   NAV / TABS (robuste desktop + bottom nav mobile)
 ============================================================ */
-function dayTypeFor(dateISO){
-  return dayFlags[dateISO] || "rest";
+function activateTab(key){
+  // highlight top tabs + bottom tabs
+  $$(".tab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
+  $$(".btab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
+
+  // show panel
+  $$(".panel").forEach(p => p.classList.remove("is-active"));
+  const panel = $("#tab-" + key);
+  if(panel) panel.classList.add("is-active");
+
+  // refresh charts when needed
+  if(key === "stats") renderCharts();
 }
+
+function setupTabs(){
+  const bind = (btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.tab;
+      if(!key) return;
+      activateTab(key);
+    });
+  };
+  $$(".tab").forEach(bind);
+  $$(".btab").forEach(bind);
+}
+
+/* ============================================================
+   UI: HOME
+============================================================ */
+function dayTypeFor(dateISO){ return dayFlags[dateISO] || "rest"; }
 function setDayType(dateISO, type){
   dayFlags[dateISO] = type;
   lsSet(K_DAYFLAGS, dayFlags);
@@ -231,47 +244,11 @@ function effectiveTargetsForDate(dateISO){
   const type = dayTypeFor(dateISO);
   const delta = (type === "training") ? (+settings.trainingDelta||0) : (+settings.restDelta||0);
   const kcal = Math.max(0, base.kcal + delta);
-
   let c = base.c + (delta/4);
   c = Math.max(0, c);
-
   return {kcal, p:base.p, c, f:base.f, delta, type};
 }
 
-/* ============================================================
-   UI: TABS (bottom tabbar)
-============================================================ */
-function setTopSubtitleForTab(key){
-  const el = $("#topSubtitle");
-  const map = {
-    home: "Aujourd’hui · Objectifs + saisie rapide",
-    stats: "Graphiques · tendances",
-    settings: "Calculateur · objectifs",
-    foods: "Base aliments · favoris · import",
-    log: "Journal · détails"
-  };
-  el.textContent = map[key] || "Suivi & pilotage · Offline";
-}
-
-function setupTabs(){
-  $$(".tab").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      $$(".tab").forEach(b=>b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-
-      const key = btn.dataset.tab;
-      $$(".panel").forEach(p=>p.classList.remove("is-active"));
-      $("#tab-"+key).classList.add("is-active");
-
-      setTopSubtitleForTab(key);
-      if(key === "stats") renderCharts();
-    });
-  });
-}
-
-/* ============================================================
-   UI: HOME
-============================================================ */
 function setChip(id, remaining, unit){
   const el = $(id);
   el.textContent = `Restant ${fmt0(remaining)} ${unit}`;
@@ -332,6 +309,55 @@ function renderHome(){
   }
 }
 
+/* ============================================================
+   Autocomplete iOS pour #qaFood (datalist fallback)
+============================================================ */
+function setupFoodAutocomplete(){
+  const input = $("#qaFood");
+  const box = $("#qaFoodAuto");
+
+  function hide(){ box.style.display = "none"; box.innerHTML = ""; }
+  function show(){ box.style.display = "block"; }
+
+  function renderList(term){
+    const t = (term || "").trim().toLowerCase();
+    box.innerHTML = "";
+    if(!t){ hide(); return; }
+
+    // take max 30
+    const matches = foods
+      .filter(f => f.name.toLowerCase().includes(t))
+      .slice(0, 30);
+
+    if(matches.length === 0){ hide(); return; }
+
+    for(const f of matches){
+      const div = document.createElement("div");
+      div.className = "autoItem";
+      div.innerHTML = `${escapeHtml(f.name)}<small>${escapeHtml(f.category||"")}</small>`;
+      div.addEventListener("click", () => {
+        input.value = f.name;
+        hide();
+      });
+      box.appendChild(div);
+    }
+    show();
+  }
+
+  input.addEventListener("input", () => renderList(input.value));
+  input.addEventListener("focus", () => renderList(input.value));
+
+  document.addEventListener("click", (e) => {
+    if(e.target === input || box.contains(e.target)) return;
+    hide();
+  });
+
+  // if user hits enter, keep value
+  input.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") hide();
+  });
+}
+
 function setupHomeHandlers(){
   $("#homeDate").addEventListener("change", renderHome);
 
@@ -344,17 +370,17 @@ function setupHomeHandlers(){
   $("#btnRefreshHome").addEventListener("click", renderHome);
 
   $("#btnPlus50").addEventListener("click", ()=>{
-    $("#qaGrams").value = Math.max(1, (+$("#qaGrams").value||0) + 50);
+    $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 50);
   });
   $("#btnPlus100").addEventListener("click", ()=>{
-    $("#qaGrams").value = Math.max(1, (+$("#qaGrams").value||0) + 100);
+    $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 100);
   });
   $("#btnPlusPortion").addEventListener("click", ()=>{
     const foodName = $("#qaFood").value.trim();
     const f = findFoodByName(foodName);
-    const portion = f ? (+f.portionGrams||0) : 0;
+    const portion = f ? (numVal(f.portionGrams)||0) : 0;
     if(portion > 0){
-      $("#qaGrams").value = Math.max(1, (+$("#qaGrams").value||0) + portion);
+      $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + portion);
     }else{
       alert("Pas de portion définie pour cet aliment (mets Portion (g) dans Base aliments).");
     }
@@ -366,7 +392,7 @@ function setupHomeHandlers(){
     const date = $("#homeDate").value || todayISO();
     const meal = $("#qaMeal").value || "";
     const foodName = $("#qaFood").value.trim();
-    const grams = Number($("#qaGrams").value || 0);
+    const grams = numVal($("#qaGrams").value);
     const note = $("#qaNote").value.trim();
 
     if(!meal){ alert("Choisis un repas."); return; }
@@ -375,7 +401,7 @@ function setupHomeHandlers(){
 
     const food = findFoodByName(foodName);
     if(!food){
-      alert("Aliment introuvable. Ajoute-le dans Base aliments ou importe ton CSV.");
+      alert("Aliment introuvable. Ajoute-le dans Base aliments.");
       return;
     }
 
@@ -426,21 +452,21 @@ function renderCalculator(){
 
 function readSettingsInputs(){
   settings.sex = $("#pSex").value;
-  settings.age = Number($("#pAge").value || 0);
-  settings.height = Number($("#pHeight").value || 0);
-  settings.weight = Number($("#pWeight").value || 0);
-  settings.activity = Number($("#pActivity").value || 1.2);
+  settings.age = numVal($("#pAge").value);
+  settings.height = numVal($("#pHeight").value);
+  settings.weight = numVal($("#pWeight").value);
+  settings.activity = numVal($("#pActivity").value) || 1.2;
   settings.goal = $("#pGoal").value;
-  settings.rate = Number($("#pRate").value || 0);
+  settings.rate = numVal($("#pRate").value);
 
-  settings.protKg = Number($("#pProtKg").value || 0);
-  settings.fatKg = Number($("#pFatKg").value || 0);
-  settings.fiber = Number($("#pFiber").value || 0);
-  settings.sodium = Number($("#pSodium").value || 0);
-  settings.water = Number($("#pWater").value || 0);
+  settings.protKg = numVal($("#pProtKg").value);
+  settings.fatKg = numVal($("#pFatKg").value);
+  settings.fiber = numVal($("#pFiber").value);
+  settings.sodium = numVal($("#pSodium").value);
+  settings.water = numVal($("#pWater").value);
 
-  settings.trainingDelta = Number($("#pTrainingDelta").value || 0);
-  settings.restDelta = Number($("#pRestDelta").value || 0);
+  settings.trainingDelta = numVal($("#pTrainingDelta").value);
+  settings.restDelta = numVal($("#pRestDelta").value);
 
   lsSet(K_SETTINGS, settings);
 }
@@ -484,7 +510,7 @@ function setupSettingsHandlers(){
 }
 
 /* ============================================================
-   UI: FOODS (seed + fav + import/export CSV)
+   UI: FOODS
 ============================================================ */
 function seedFoodsStarter(){
   const starter = [
@@ -578,48 +604,6 @@ function renderFoodsTable(){
   });
 }
 
-/* --- CSV import (colonnes attendues: name,category,kcal100,p100,g100,l100,portionGrams) --- */
-function parseCsv(text){
-  const lines = text.replace(/\r/g,"").split("\n").filter(Boolean);
-  if(lines.length < 2) return [];
-  const header = lines[0].split(",").map(s=>s.trim());
-  const rows = [];
-  for(let i=1;i<lines.length;i++){
-    const cols = lines[i].split(",").map(s=>s.trim());
-    const obj = {};
-    header.forEach((h,idx)=> obj[h] = (cols[idx] ?? ""));
-    rows.push(obj);
-  }
-  return rows;
-}
-
-function importFoodsFromCsvText(csvText){
-  const rows = parseCsv(csvText);
-
-  let added = 0;
-  for(const r of rows){
-    const name = String(r.name || r.Nom || "").trim();
-    if(!name) continue;
-    if(findFoodByName(name)) continue;
-
-    foods.push({
-      id: uid(),
-      favorite: false,
-      name,
-      category: String(r.category || r.Categorie || "").trim(),
-      kcal100: Number(r.kcal100 || r.kcal || 0),
-      p100: Number(r.p100 || r.p || 0),
-      g100: Number(r.g100 || r.c || r.glucides || 0),
-      l100: Number(r.l100 || r.f || r.lipides || 0),
-      portionGrams: Number(r.portionGrams || r.portion || 0) || 0
-    });
-    added++;
-  }
-
-  lsSet(K_FOODS, foods);
-  return added;
-}
-
 function setupFoodHandlers(){
   $("#foodForm").addEventListener("submit", (e)=>{
     e.preventDefault();
@@ -633,11 +617,11 @@ function setupFoodHandlers(){
       favorite: false,
       name,
       category: $("#fCat").value.trim(),
-      kcal100: Number($("#fKcal").value || 0),
-      p100: Number($("#fP").value || 0),
-      g100: Number($("#fC").value || 0),
-      l100: Number($("#fF").value || 0),
-      portionGrams: Number($("#fPortion").value || 0) || 0
+      kcal100: numVal($("#fKcal").value),
+      p100: numVal($("#fP").value),
+      g100: numVal($("#fC").value),
+      l100: numVal($("#fF").value),
+      portionGrams: numVal($("#fPortion").value) || 0
     };
 
     foods.push(item);
@@ -664,33 +648,6 @@ function setupFoodHandlers(){
     $(sel).addEventListener("input", renderFoodsTable);
     $(sel).addEventListener("change", renderFoodsTable);
   });
-
-  // Import CSV aliments
-  $("#btnImportFoodsCsv").addEventListener("click", ()=>{
-    $("#foodsCsvFile").click();
-  });
-
-  $("#foodsCsvFile").addEventListener("change", async ()=>{
-    const file = $("#foodsCsvFile").files?.[0];
-    $("#foodsCsvFile").value = "";
-    if(!file) return;
-
-    try{
-      const text = await readFileAsText(file);
-      const added = importFoodsFromCsvText(text);
-      renderAll();
-      alert(`Import terminé ✅\nAliments ajoutés: ${added}`);
-    }catch(err){
-      console.error(err);
-      alert("Import CSV échoué.");
-    }
-  });
-
-  // Export aliments JSON
-  $("#btnExportFoodsJson").addEventListener("click", ()=>{
-    const payload = JSON.stringify(foods, null, 2);
-    downloadText(`foods_${todayISO()}.json`, payload);
-  });
 }
 
 /* ============================================================
@@ -706,7 +663,7 @@ function renderLogGrouped(){
   root.innerHTML = "";
 
   const term = ($("#logSearch").value||"").trim().toLowerCase();
-  const range = Number($("#logRange").value||0);
+  const range = numVal($("#logRange").value);
 
   let items = log.filter(it => inRangeByDays(it.date, range));
   if(term){
@@ -744,7 +701,6 @@ function renderLogGrouped(){
     `;
 
     const itemsDate = byDate.get(d);
-
     const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
     const byMeal = new Map();
     for(const it of itemsDate){
@@ -832,7 +788,7 @@ function setupLogHandlers(){
 }
 
 /* ============================================================
-   CHARTS
+   CHARTS (canvas simple)
 ============================================================ */
 function movingAverage(values, window){
   const w = Number(window||0);
@@ -933,9 +889,9 @@ function seriesForLastDays(days){
 }
 
 function renderCharts(){
-  const days = Number($("#statsRange").value||30);
+  const days = numVal($("#statsRange").value) || 30;
   const metric = $("#statsMetric").value;
-  const smooth = Number($("#statsSmooth").value||0);
+  const smooth = numVal($("#statsSmooth").value) || 0;
 
   const {labels, valuesK, valuesP, valuesC, valuesF} = seriesForLastDays(days);
 
@@ -956,7 +912,6 @@ function renderCharts(){
 
 function renderWeightChart(){
   const canvas = $("#weightChart");
-
   const sorted = [...weights].sort((a,b)=> a.date.localeCompare(b.date));
   if(sorted.length === 0){
     drawLineChart(canvas, ["—"], [0], { title:"Poids (kg)" });
@@ -965,7 +920,7 @@ function renderWeightChart(){
 
   const slice = sorted.slice(Math.max(0, sorted.length-20));
   const labels = slice.map(x=> x.date.slice(5));
-  const values = slice.map(x=> Number(x.kg||0));
+  const values = slice.map(x=> numVal(x.kg||0));
 
   drawLineChart(canvas, labels, values, { title:"Poids (kg)" });
 }
@@ -1004,7 +959,7 @@ function setupWeightsHandlers(){
   $("#weightForm").addEventListener("submit", (e)=>{
     e.preventDefault();
     const date = $("#wDate").value || todayISO();
-    const kg = Number($("#wKg").value || 0);
+    const kg = numVal($("#wKg").value);
     if(!(kg>0)){ alert("Poids invalide."); return; }
 
     weights.push({ id:uid(), date, kg });
@@ -1028,61 +983,6 @@ function setupWeightsHandlers(){
 }
 
 /* ============================================================
-   BACKUP (Export / Import de tout)
-============================================================ */
-function exportAllData(){
-  const payload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    settings, foods, log, weights, dayFlags
-  };
-  downloadText(`nutrition_backup_${todayISO()}.json`, JSON.stringify(payload, null, 2));
-}
-
-async function importAllData(){
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "application/json,.json";
-  input.click();
-
-  input.onchange = async () => {
-    const file = input.files?.[0];
-    if(!file) return;
-
-    try{
-      const text = await readFileAsText(file);
-      const data = JSON.parse(text);
-
-      if(!data || typeof data !== "object") throw new Error("bad json");
-
-      // on garde tes structures, sans casser
-      settings = data.settings || settings;
-      foods    = Array.isArray(data.foods) ? data.foods : foods;
-      log      = Array.isArray(data.log) ? data.log : log;
-      weights  = Array.isArray(data.weights) ? data.weights : weights;
-      dayFlags = data.dayFlags || dayFlags;
-
-      lsSet(K_SETTINGS, settings);
-      lsSet(K_FOODS, foods);
-      lsSet(K_LOG, log);
-      lsSet(K_WEIGHTS, weights);
-      lsSet(K_DAYFLAGS, dayFlags);
-
-      renderAll();
-      alert("Import terminé ✅");
-    }catch(e){
-      console.error(e);
-      alert("Import échoué (fichier invalide).");
-    }
-  };
-}
-
-function setupBackupHandlers(){
-  $("#btnExportData")?.addEventListener("click", exportAllData);
-  $("#btnImportData")?.addEventListener("click", importAllData);
-}
-
-/* ============================================================
    INIT + RENDER ALL
 ============================================================ */
 function renderAll(){
@@ -1102,12 +1002,18 @@ function renderAll(){
 
 function init(){
   setupTabs();
-  setupBackupHandlers();
-
   setupHomeHandlers();
   setupSettingsHandlers();
   setupFoodHandlers();
   setupLogHandlers();
   setupWeightsHandlers();
+  setupFoodAutocomplete();
 
-  s
+  renderAll();
+
+  // Ensure default active tab (safety)
+  activateTab("home");
+}
+
+/* Run after DOM is ready => fixes “buttons don’t work” */
+document.addEventListener("DOMContentLoaded", init);
