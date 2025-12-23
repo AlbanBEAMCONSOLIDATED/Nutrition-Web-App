@@ -1,7 +1,7 @@
 "use strict";
 
 /* ============================================================
-   STORAGE (clé séparées, clean)
+   STORAGE
 ============================================================ */
 const K_SETTINGS = "nutrition_settings";
 const K_FOODS    = "nutrition_foods";
@@ -37,6 +37,23 @@ function todayISO(){
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
+function daysBackISO(n){
+  const d = new Date();
+  d.setDate(d.getDate()-n);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+function addDaysISO(dateISO, delta){
+  const d = new Date(dateISO + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function fmt0(n){
   const x = Number(n);
   if(!Number.isFinite(x)) return "0";
@@ -56,69 +73,108 @@ function escapeHtml(str){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
-function daysBackISO(n){
-  const d = new Date();
-  d.setDate(d.getDate()-n);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
-/* iPhone decimal fix: accept "1,25" or "1.25" */
+/* iPhone decimal: accept "0,5" "1.2" "1," etc without resetting */
 function numVal(v){
   if(v === null || v === undefined) return 0;
-  const s = String(v).trim().replace(",", ".");
+  let s = String(v).trim();
+  if(!s) return 0;
+
+  // keep digits + separators + minus
+  s = s.replace(/[^\d,.\-]/g, "");
+
+  // allow partial input (ends with dot/comma)
+  if(/[,.]$/.test(s)) {
+    const cut = s.slice(0, -1).replace(",", ".");
+    const x = Number(cut);
+    return Number.isFinite(x) ? x : 0;
+  }
+
+  // normalize comma -> dot (first comma)
+  s = s.replace(",", ".");
   const x = Number(s);
   return Number.isFinite(x) ? x : 0;
 }
 
-/* ============================================================
-   iPhone decimal inputs: allow "." and "," without Safari reset
-============================================================ */
-function sanitizeDecimalInput(str){
-  let s = String(str ?? "");
-
-  // keep digits + separators + minus
-  s = s.replace(/[^\d.,-]/g, "");
-
-  // only one leading "-"
-  s = s.replace(/(?!^)-/g, "");
-
-  // keep only first separator (either "." or ",")
-  const idxDot = s.indexOf(".");
-  const idxCom = s.indexOf(",");
-  const candidates = [idxDot, idxCom].filter(i => i !== -1);
-  if(candidates.length){
-    const firstSepIndex = Math.min(...candidates);
-    const head = s.slice(0, firstSepIndex + 1);
-    const tail = s.slice(firstSepIndex + 1).replace(/[.,]/g, "");
-    s = head + tail;
+function formatDateLabel(dateISO){
+  const d = new Date(dateISO + "T00:00:00");
+  try{
+    return new Intl.DateTimeFormat("fr-CH", {
+      weekday:"short",
+      day:"2-digit",
+      month:"short",
+      year:"numeric"
+    }).format(d);
+  }catch{
+    return dateISO;
   }
-
-  return s;
+}
+function updateHomeDateUI(){
+  const date = $("#homeDate")?.value || todayISO();
+  const label = $("#dateLabel");
+  if(label) label.textContent = formatDateLabel(date);
 }
 
-function setupDecimalInputs(){
-  const inputs = $$('input[data-decimal="1"]');
-  inputs.forEach(inp => {
-    inp.setAttribute("inputmode", "decimal");
-    inp.setAttribute("autocomplete", "off");
+/* ============================================================
+   PRESET CATEGORIES
+============================================================ */
+const PRESET_CATS = [
+  "Laitier","Légume","Viande","Poisson","Fruit",
+  "Glucide","Lipide","Boisson","Snack","Autre"
+];
 
-    inp.addEventListener("input", () => {
-      const before = inp.value;
-      const after = sanitizeDecimalInput(before);
-      if(before !== after) inp.value = after;
+function fillCategorySelects(){
+  const selAdd = $("#fCatSelect");
+  const selFilter = $("#foodCatFilter");
+
+  if(selAdd){
+    selAdd.innerHTML = "";
+    for(const c of PRESET_CATS){
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      selAdd.appendChild(opt);
+    }
+    selAdd.value = "Laitier";
+  }
+
+  if(selFilter){
+    // remove any old dynamic options (keep first "Toutes")
+    const keep0 = selFilter.querySelector('option[value="__all__"]');
+    selFilter.innerHTML = "";
+    selFilter.appendChild(keep0);
+
+    PRESET_CATS.filter(c => c !== "Autre").forEach(c=>{
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      selFilter.appendChild(opt);
     });
-  });
+  }
+}
+
+function setupCategoryBehavior(){
+  const sel = $("#fCatSelect");
+  const wrap = $("#fCatCustomWrap");
+  const inp = $("#fCatCustom");
+  if(!sel || !wrap || !inp) return;
+
+  const apply = () => {
+    const isOther = sel.value === "Autre";
+    wrap.style.display = isOther ? "flex" : "none";
+    if(!isOther) inp.value = "";
+  };
+
+  sel.addEventListener("change", apply);
+  apply();
 }
 
 /* ============================================================
    STATE
 ============================================================ */
 const defaultSettings = {
-  sex:"M", age:23, height:178, weight:95,
-  activity:1.2, goal:"cut", rate:0.5,
+  sex:"M", age:23, height:178, weight:90,
+  activity:1.55, goal:"cut", rate:0.5,
   protKg:2.0, fatKg:0.7, fiber:30, sodium:2300, water:3.0,
   trainingDelta: +200,
   restDelta: 0,
@@ -132,7 +188,7 @@ let weights  = lsGet(K_WEIGHTS, []);
 let dayFlags = lsGet(K_DAYFLAGS, {});
 
 /* ============================================================
-   CALC (Mifflin + Targets)
+   CALC
 ============================================================ */
 function mifflinBMR({sex, weight, height, age}){
   const s = (sex === "M") ? 5 : -161;
@@ -143,13 +199,11 @@ function calcTargetsFromInputs(s){
   const sexConst = (s.sex === "M") ? 5 : -161;
   const bmr = mifflinBMR(s);
   const tdee = bmr * Number(s.activity || 1.2);
-
   const daily = (Number(s.rate || 0) * 7700) / 7;
 
   let delta = 0;
   if(s.goal === "cut") delta = -daily;
   else if(s.goal === "bulk") delta = +daily;
-  else delta = 0;
 
   const targetKcal = tdee + delta;
 
@@ -222,7 +276,6 @@ function kpiStateGeneric(pct){
 
 function getAlerts(consumed, targets, hourNow){
   const out = [];
-
   if(targets.p > 0 && consumed.p < 0.7*targets.p && hourNow >= 14){
     out.push("Protéines basses : vise 40–50g au prochain repas.");
   }
@@ -230,19 +283,16 @@ function getAlerts(consumed, targets, hourNow){
     out.push("Lipides trop bas : ajoute 15–25g (huile d’olive, œufs, noix).");
   }
   if(targets.kcal > 0 && consumed.kcal > targets.kcal){
-    out.push("Calories dépassées : reste light sur glucides ce soir.");
-  }
-  if(settings.fiber > 0 && hourNow >= 16){
-    out.push("Fibres : pense légumes + fruit (objectif fibres dans paramètres).");
+    out.push("Calories dépassées : reste light ce soir.");
   }
   if(out.length === 0){
-    out.push("Régulier > parfait. Remplis le journal, ajuste ensuite.");
+    out.push("Régulier > parfait. Ajoute tes repas, ajuste ensuite.");
   }
   return out.slice(0,4);
 }
 
 /* ============================================================
-   NAV / TABS (robuste desktop + bottom nav mobile)
+   NAV / TABS
 ============================================================ */
 function activateTab(key){
   $$(".tab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === key));
@@ -254,7 +304,6 @@ function activateTab(key){
 
   if(key === "stats") renderCharts();
 }
-
 function setupTabs(){
   const bind = (btn) => {
     btn.addEventListener("click", () => {
@@ -268,7 +317,7 @@ function setupTabs(){
 }
 
 /* ============================================================
-   UI: HOME
+   HOME
 ============================================================ */
 function dayTypeFor(dateISO){ return dayFlags[dateISO] || "rest"; }
 function setDayType(dateISO, type){
@@ -316,6 +365,7 @@ function setKpiBlock(key, consumed, target, unit, stateFn){
 function renderHome(){
   const date = $("#homeDate").value || todayISO();
   $("#homeDate").value = date;
+  updateHomeDateUI();
 
   const type = dayTypeFor(date);
   const toggle = $("#dayTrainingToggle");
@@ -346,12 +396,11 @@ function renderHome(){
   }
 }
 
-/* ============================================================
-   Autocomplete iOS pour #qaFood (datalist fallback)
-============================================================ */
+/* Autocomplete iOS */
 function setupFoodAutocomplete(){
   const input = $("#qaFood");
   const box = $("#qaFoodAuto");
+  if(!input || !box) return;
 
   function hide(){ box.style.display = "none"; box.innerHTML = ""; }
   function show(){ box.style.display = "block"; }
@@ -382,46 +431,71 @@ function setupFoodAutocomplete(){
 
   input.addEventListener("input", () => renderList(input.value));
   input.addEventListener("focus", () => renderList(input.value));
-
   document.addEventListener("click", (e) => {
     if(e.target === input || box.contains(e.target)) return;
     hide();
   });
-
   input.addEventListener("keydown", (e) => {
     if(e.key === "Escape") hide();
   });
 }
 
 function setupHomeHandlers(){
-  $("#homeDate").addEventListener("change", renderHome);
+  // date nav
+  const prev = $("#datePrev");
+  const next = $("#dateNext");
+  const homeDate = $("#homeDate");
 
-  $("#dayTrainingToggle").addEventListener("change", ()=>{
+  if(homeDate){
+    homeDate.value = homeDate.value || todayISO();
+    homeDate.addEventListener("change", ()=>{
+      updateHomeDateUI();
+      renderHome();
+    });
+  }
+  if(prev){
+    prev.addEventListener("click", ()=>{
+      const d = homeDate.value || todayISO();
+      homeDate.value = addDaysISO(d, -1);
+      updateHomeDateUI();
+      renderHome();
+    });
+  }
+  if(next){
+    next.addEventListener("click", ()=>{
+      const d = homeDate.value || todayISO();
+      homeDate.value = addDaysISO(d, +1);
+      updateHomeDateUI();
+      renderHome();
+    });
+  }
+
+  $("#dayTrainingToggle")?.addEventListener("change", ()=>{
     const date = $("#homeDate").value || todayISO();
     setDayType(date, $("#dayTrainingToggle").checked ? "training" : "rest");
     renderHome();
   });
 
-  $("#btnRefreshHome").addEventListener("click", renderHome);
+  $("#btnRefreshHome")?.addEventListener("click", renderHome);
 
-  $("#btnPlus50").addEventListener("click", ()=>{
+  $("#btnPlus50")?.addEventListener("click", ()=>{
     $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 50);
   });
-  $("#btnPlus100").addEventListener("click", ()=>{
+  $("#btnPlus100")?.addEventListener("click", ()=>{
     $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 100);
   });
-  $("#btnPlusPortion").addEventListener("click", ()=>{
+  $("#btnPlusPortion")?.addEventListener("click", ()=>{
     const foodName = $("#qaFood").value.trim();
     const f = findFoodByName(foodName);
     const portion = f ? (numVal(f.portionGrams)||0) : 0;
     if(portion > 0){
       $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + portion);
     }else{
-      alert("Pas de portion définie pour cet aliment (mets Portion (g) dans Base aliments).");
+      alert("Pas de portion définie (mets Portion (g) dans Base aliments).");
     }
   });
 
-  $("#quickAddForm").addEventListener("submit", (e)=>{
+  $("#quickAddForm")?.addEventListener("submit", (e)=>{
     e.preventDefault();
 
     const date = $("#homeDate").value || todayISO();
@@ -451,22 +525,22 @@ function setupHomeHandlers(){
 }
 
 /* ============================================================
-   UI: SETTINGS
+   SETTINGS
 ============================================================ */
 function renderCalculator(){
   $("#pSex").value = settings.sex;
   $("#pAge").value = settings.age;
   $("#pHeight").value = settings.height;
-  $("#pWeight").value = settings.weight;
+  $("#pWeight").value = String(settings.weight ?? "");
   $("#pActivity").value = String(settings.activity);
   $("#pGoal").value = settings.goal;
-  $("#pRate").value = settings.rate;
+  $("#pRate").value = String(settings.rate ?? "");
 
-  $("#pProtKg").value = settings.protKg;
-  $("#pFatKg").value = settings.fatKg;
+  $("#pProtKg").value = String(settings.protKg ?? "");
+  $("#pFatKg").value = String(settings.fatKg ?? "");
   $("#pFiber").value = settings.fiber;
   $("#pSodium").value = settings.sodium;
-  $("#pWater").value = settings.water;
+  $("#pWater").value = String(settings.water ?? "");
 
   $("#pTrainingDelta").value = settings.trainingDelta;
   $("#pRestDelta").value = settings.restDelta;
@@ -489,6 +563,7 @@ function readSettingsInputs(){
   settings.sex = $("#pSex").value;
   settings.age = numVal($("#pAge").value);
   settings.height = numVal($("#pHeight").value);
+
   settings.weight = numVal($("#pWeight").value);
   settings.activity = numVal($("#pActivity").value) || 1.2;
   settings.goal = $("#pGoal").value;
@@ -511,15 +586,16 @@ function setupSettingsHandlers(){
     "#pSex","#pAge","#pHeight","#pWeight","#pActivity","#pGoal","#pRate",
     "#pProtKg","#pFatKg","#pFiber","#pSodium","#pWater","#pTrainingDelta","#pRestDelta"
   ];
+
   live.forEach(sel=>{
-    $(sel).addEventListener("input", ()=>{
+    $(sel)?.addEventListener("input", ()=>{
       readSettingsInputs();
       renderCalculator();
       renderHome();
     });
   });
 
-  $("#btnApplyCalculator").addEventListener("click", ()=>{
+  $("#btnApplyCalculator")?.addEventListener("click", ()=>{
     readSettingsInputs();
     if(!(settings.age>0 && settings.height>0 && settings.weight>0)){
       alert("Remplis au minimum âge / taille / poids.");
@@ -534,10 +610,10 @@ function setupSettingsHandlers(){
 
     lsSet(K_SETTINGS, settings);
     renderAll();
-    alert("Objectifs du jour mis à jour ✅");
+    alert("Objectifs mis à jour ✅");
   });
 
-  $("#btnResetSettings").addEventListener("click", ()=>{
+  $("#btnResetSettings")?.addEventListener("click", ()=>{
     settings = structuredClone(defaultSettings);
     lsSet(K_SETTINGS, settings);
     renderAll();
@@ -545,7 +621,7 @@ function setupSettingsHandlers(){
 }
 
 /* ============================================================
-   UI: FOODS
+   FOODS
 ============================================================ */
 function seedFoodsStarter(){
   const starter = [
@@ -570,6 +646,7 @@ function seedFoodsStarter(){
 
 function renderFoodsDatalist(){
   const dl = $("#foodsDatalist");
+  if(!dl) return;
   dl.innerHTML = "";
   const sorted = [...foods].sort((a,b)=> a.name.localeCompare(b.name));
   for(const f of sorted){
@@ -580,13 +657,13 @@ function renderFoodsDatalist(){
 }
 
 function getFoodsFiltered(){
-  const term = ($("#foodSearch").value||"").trim().toLowerCase();
-  const cat  = ($("#foodCatFilter").value||"").trim().toLowerCase();
-  const sort = $("#foodSort").value;
+  const term = ($("#foodSearch")?.value||"").trim().toLowerCase();
+  const catValue = ($("#foodCatFilter")?.value || "__all__");
+  const sort = $("#foodSort")?.value || "fav";
 
   let arr = foods.filter(f=>{
     const okTerm = !term || f.name.toLowerCase().includes(term);
-    const okCat  = !cat  || (f.category||"").toLowerCase().includes(cat);
+    const okCat = (catValue === "__all__") || ((f.category || "") === catValue);
     return okTerm && okCat;
   });
 
@@ -600,6 +677,7 @@ function getFoodsFiltered(){
 
 function renderFoodsTable(){
   const tb = $("#foodsTable tbody");
+  if(!tb) return;
   tb.innerHTML = "";
 
   for(const f of getFoodsFiltered()){
@@ -640,18 +718,27 @@ function renderFoodsTable(){
 }
 
 function setupFoodHandlers(){
-  $("#foodForm").addEventListener("submit", (e)=>{
+  $("#foodForm")?.addEventListener("submit", (e)=>{
     e.preventDefault();
 
     const name = $("#fName").value.trim();
     if(!name){ alert("Nom aliment manquant."); return; }
     if(findFoodByName(name)){ alert("Cet aliment existe déjà."); return; }
 
+    const catSel = $("#fCatSelect").value;
+    const catCustom = ($("#fCatCustom").value || "").trim();
+    const category = (catSel === "Autre") ? catCustom : catSel;
+
+    if(catSel === "Autre" && !category){
+      alert("Écris une catégorie pour 'Autre'.");
+      return;
+    }
+
     const item = {
       id: uid(),
       favorite: false,
       name,
-      category: $("#fCat").value.trim(),
+      category,
       kcal100: numVal($("#fKcal").value),
       p100: numVal($("#fP").value),
       g100: numVal($("#fC").value),
@@ -663,16 +750,20 @@ function setupFoodHandlers(){
     lsSet(K_FOODS, foods);
 
     $("#foodForm").reset();
+    $("#fCatSelect").value = "Laitier";
+    $("#fCatCustomWrap").style.display = "none";
+    $("#fCatCustom").value = "";
+
     renderAll();
   });
 
-  $("#btnSeed").addEventListener("click", ()=>{
+  $("#btnSeed")?.addEventListener("click", ()=>{
     seedFoodsStarter();
     renderAll();
     alert("Base starter ajoutée ✅");
   });
 
-  $("#btnClearFoods").addEventListener("click", ()=>{
+  $("#btnClearFoods")?.addEventListener("click", ()=>{
     if(!confirm("Vider la base aliments ?")) return;
     foods = [];
     lsSet(K_FOODS, foods);
@@ -680,13 +771,13 @@ function setupFoodHandlers(){
   });
 
   ["#foodSearch","#foodCatFilter","#foodSort"].forEach(sel=>{
-    $(sel).addEventListener("input", renderFoodsTable);
-    $(sel).addEventListener("change", renderFoodsTable);
+    $(sel)?.addEventListener("input", renderFoodsTable);
+    $(sel)?.addEventListener("change", renderFoodsTable);
   });
 }
 
 /* ============================================================
-   UI: LOG GROUPED
+   LOG
 ============================================================ */
 function inRangeByDays(dateISO, days){
   if(!days || days<=0) return true;
@@ -695,6 +786,7 @@ function inRangeByDays(dateISO, days){
 
 function renderLogGrouped(){
   const root = $("#logGrouped");
+  if(!root) return;
   root.innerHTML = "";
 
   const term = ($("#logSearch").value||"").trim().toLowerCase();
@@ -722,6 +814,8 @@ function renderLogGrouped(){
     return;
   }
 
+  const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
+
   for(const d of dates){
     const block = document.createElement("div");
     block.className = "logDate";
@@ -736,7 +830,6 @@ function renderLogGrouped(){
     `;
 
     const itemsDate = byDate.get(d);
-    const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
     const byMeal = new Map();
     for(const it of itemsDate){
       if(!byMeal.has(it.meal)) byMeal.set(it.meal, []);
@@ -809,7 +902,7 @@ function renderLogGrouped(){
 }
 
 function setupLogHandlers(){
-  $("#btnClearMeals").addEventListener("click", ()=>{
+  $("#btnClearMeals")?.addEventListener("click", ()=>{
     if(!confirm("Vider le journal repas ?")) return;
     log = [];
     lsSet(K_LOG, log);
@@ -817,16 +910,16 @@ function setupLogHandlers(){
   });
 
   ["#logSearch","#logRange"].forEach(sel=>{
-    $(sel).addEventListener("input", renderLogGrouped);
-    $(sel).addEventListener("change", renderLogGrouped);
+    $(sel)?.addEventListener("input", renderLogGrouped);
+    $(sel)?.addEventListener("change", renderLogGrouped);
   });
 }
 
 /* ============================================================
-   CHARTS (canvas simple + responsive iPhone)
+   CHARTS (responsive canvas)
 ============================================================ */
-function movingAverage(values, window){
-  const w = Number(window||0);
+function movingAverage(values, windowSize){
+  const w = Number(windowSize||0);
   if(!w || w<=1) return values;
   const out = [];
   for(let i=0;i<values.length;i++){
@@ -838,38 +931,36 @@ function movingAverage(values, window){
   return out;
 }
 
-function drawLineChart(canvas, labels, values, opts){
-  const ctx = canvas.getContext("2d");
-
-  // responsive sizing
-  const cssW = canvas.clientWidth || 300;
-  const cssH = parseFloat(getComputedStyle(canvas).height) || 220;
-
+function setCanvasSize(canvas){
+  const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  canvas.width  = Math.max(1, Math.round(cssW * dpr));
-  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  const w = Math.max(320, Math.floor(rect.width * dpr));
+  const h = Math.max(220, Math.floor(rect.height * dpr));
+  canvas.width = w;
+  canvas.height = h;
+  return {W:w, H:h, dpr};
+}
 
-  // draw in CSS pixel coordinates
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  const W = cssW, H = cssH;
+function drawLineChart(canvas, labels, values, opts){
+  if(!canvas) return;
+  const {W, H} = setCanvasSize(canvas);
+  const ctx = canvas.getContext("2d");
   ctx.clearRect(0,0,W,H);
 
   ctx.fillStyle = "rgba(0,0,0,0.10)";
   ctx.fillRect(0,0,W,H);
 
-  const padL = 46, padR = 18, padT = 18, padB = 34;
+  const padL = 56, padR = 18, padT = 22, padB = 36;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
   const minV = Math.min(...values, 0);
   const maxV = Math.max(...values, 1);
-
   const lo = (opts && Number.isFinite(opts.min)) ? opts.min : minV;
   const hi = (opts && Number.isFinite(opts.max)) ? opts.max : maxV;
-
   const range = Math.max(1e-9, hi - lo);
 
+  // grid
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
   for(let i=0;i<=4;i++){
@@ -880,19 +971,20 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.stroke();
   }
 
+  // title
   ctx.fillStyle = "rgba(226,232,240,0.85)";
-  ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
-  ctx.fillText(opts?.title || "", padL, 14);
+  ctx.font = "900 14px ui-sans-serif, system-ui, -apple-system, Segoe UI";
+  ctx.fillText(opts?.title || "", padL, 16);
 
   const n = values.length;
   if(n <= 1){
-    ctx.fillText("Pas assez de données", padL, padT + 20);
+    ctx.fillText("Pas assez de données", padL, padT + 24);
     return;
   }
 
+  // line
   ctx.strokeStyle = "rgba(59,130,246,0.95)";
   ctx.lineWidth = 2;
-
   ctx.beginPath();
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
@@ -901,23 +993,27 @@ function drawLineChart(canvas, labels, values, opts){
   }
   ctx.stroke();
 
+  // points
   ctx.fillStyle = "rgba(226,232,240,0.9)";
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
     const y = padT + plotH * (1 - ((values[i]-lo)/range));
     ctx.beginPath();
-    ctx.arc(x,y,2.6,0,Math.PI*2);
+    ctx.arc(x,y,3.0,0,Math.PI*2);
     ctx.fill();
   }
 
+  // labels bottom
   ctx.fillStyle = "rgba(148,163,184,0.9)";
+  ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
   const idxMid = Math.floor((n-1)/2);
   ctx.fillText(labels[0] || "", padL, H-12);
-  ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 16, H-12);
-  ctx.fillText(labels[n-1] || "", padL + plotW - 30, H-12);
+  ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 18, H-12);
+  ctx.fillText(labels[n-1] || "", padL + plotW - 38, H-12);
 
-  ctx.fillText(String(Math.round(hi)), 6, padT+10);
-  ctx.fillText(String(Math.round(lo)), 6, padT+plotH);
+  // y labels
+  ctx.fillText(String(Math.round(hi)), 8, padT+12);
+  ctx.fillText(String(Math.round(lo)), 8, padT+plotH);
 }
 
 function seriesForLastDays(days){
@@ -935,28 +1031,6 @@ function seriesForLastDays(days){
   return {labels, valuesK, valuesP, valuesC, valuesF};
 }
 
-function renderCharts(){
-  const days = numVal($("#statsRange").value) || 30;
-  const metric = $("#statsMetric").value;
-  const smooth = numVal($("#statsSmooth").value) || 0;
-
-  const {labels, valuesK, valuesP, valuesC, valuesF} = seriesForLastDays(days);
-
-  let values = valuesK;
-  let title = "Calories (kcal)";
-  if(metric==="p"){ values = valuesP; title = "Protéines (g)"; }
-  if(metric==="c"){ values = valuesC; title = "Glucides (g)"; }
-  if(metric==="f"){ values = valuesF; title = "Lipides (g)"; }
-
-  values = movingAverage(values, smooth);
-
-  drawLineChart($("#macroChart"), labels, values, { title });
-  $("#macroChartHint").textContent = `Fenêtre: ${days} jours · Lissage: ${smooth ? (smooth+" jours") : "aucun"} · Source: Journal repas`;
-
-  renderWeightsTable();
-  renderWeightChart();
-}
-
 function renderWeightChart(){
   const canvas = $("#weightChart");
   const sorted = [...weights].sort((a,b)=> a.date.localeCompare(b.date));
@@ -964,19 +1038,15 @@ function renderWeightChart(){
     drawLineChart(canvas, ["—"], [0], { title:"Poids (kg)" });
     return;
   }
-
   const slice = sorted.slice(Math.max(0, sorted.length-20));
   const labels = slice.map(x=> x.date.slice(5));
   const values = slice.map(x=> numVal(x.kg||0));
-
   drawLineChart(canvas, labels, values, { title:"Poids (kg)" });
 }
 
-/* ============================================================
-   WEIGHTS
-============================================================ */
 function renderWeightsTable(){
   const tb = $("#weightsTable tbody");
+  if(!tb) return;
   tb.innerHTML = "";
 
   const sorted = [...weights].sort((a,b)=> b.date.localeCompare(a.date));
@@ -1000,38 +1070,89 @@ function renderWeightsTable(){
   });
 }
 
-function setupWeightsHandlers(){
-  $("#wDate").value = todayISO();
+function renderCharts(){
+  const days = numVal($("#statsRange")?.value) || 30;
+  const metric = $("#statsMetric")?.value || "kcal";
+  const smooth = numVal($("#statsSmooth")?.value) || 0;
 
-  $("#weightForm").addEventListener("submit", (e)=>{
+  const {labels, valuesK, valuesP, valuesC, valuesF} = seriesForLastDays(days);
+
+  let values = valuesK;
+  let title = "Calories (kcal)";
+  if(metric==="p"){ values = valuesP; title = "Protéines (g)"; }
+  if(metric==="c"){ values = valuesC; title = "Glucides (g)"; }
+  if(metric==="f"){ values = valuesF; title = "Lipides (g)"; }
+
+  values = movingAverage(values, smooth);
+
+  drawLineChart($("#macroChart"), labels, values, { title });
+
+  const hint = $("#macroChartHint");
+  if(hint){
+    hint.textContent = `Fenêtre: ${days} jours · Lissage: ${smooth ? (smooth+" jours") : "aucun"} · Source: Journal repas`;
+  }
+
+  renderWeightsTable();
+  renderWeightChart();
+}
+
+/* ============================================================
+   WEIGHTS
+============================================================ */
+function setupWeightsHandlers(){
+  const wDate = $("#wDate");
+  const wKg = $("#wKg");
+
+  if(wDate) wDate.value = todayISO();
+
+  $("#weightForm")?.addEventListener("submit", (e)=>{
     e.preventDefault();
-    const date = $("#wDate").value || todayISO();
-    const kg = numVal($("#wKg").value);
+    const date = wDate?.value || todayISO();
+    const kg = numVal(wKg?.value);
     if(!(kg>0)){ alert("Poids invalide."); return; }
 
     weights.push({ id:uid(), date, kg });
     lsSet(K_WEIGHTS, weights);
 
-    $("#wKg").value = "";
+    if(wKg) wKg.value = "";
     renderCharts();
   });
 
-  $("#btnClearWeights").addEventListener("click", ()=>{
+  $("#btnClearWeights")?.addEventListener("click", ()=>{
     if(!confirm("Vider l'historique de poids ?")) return;
     weights = [];
     lsSet(K_WEIGHTS, weights);
     renderCharts();
   });
 
-  $("#btnRefreshCharts").addEventListener("click", renderCharts);
-  $("#statsRange").addEventListener("change", renderCharts);
-  $("#statsMetric").addEventListener("change", renderCharts);
-  $("#statsSmooth").addEventListener("change", renderCharts);
+  $("#btnRefreshCharts")?.addEventListener("click", renderCharts);
+  $("#statsRange")?.addEventListener("change", renderCharts);
+  $("#statsMetric")?.addEventListener("change", renderCharts);
+  $("#statsSmooth")?.addEventListener("change", renderCharts);
 
-  // redraw on resize (iphone rotation)
+  // critical: resize charts on iPhone rotation / address bar changes
   window.addEventListener("resize", ()=>{
     if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
-  }, { passive:true });
+  });
+  window.addEventListener("orientationchange", ()=>{
+    setTimeout(()=>{
+      if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
+    }, 200);
+  });
+}
+
+/* ============================================================
+   SPLASH
+============================================================ */
+function hideSplash(){
+  const splash = $("#splash");
+  if(!splash) return;
+
+  setTimeout(()=>{
+    splash.style.opacity = "0";
+    splash.style.pointerEvents = "none";
+    setTimeout(()=> splash.remove(), 250);
+  }, 1000);
 }
 
 /* ============================================================
@@ -1043,27 +1164,35 @@ function renderAll(){
     seedFoodsStarter();
   }
 
-  $("#homeDate").value = $("#homeDate").value || todayISO();
+  const homeDate = $("#homeDate");
+  if(homeDate) homeDate.value = homeDate.value || todayISO();
 
+  updateHomeDateUI();
   renderCalculator();
   renderFoodsDatalist();
   renderFoodsTable();
   renderLogGrouped();
   renderHome();
+
+  // if already on stats tab, refresh
+  if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
 }
 
 function init(){
   setupTabs();
+  fillCategorySelects();
+  setupCategoryBehavior();
+
   setupHomeHandlers();
   setupSettingsHandlers();
   setupFoodHandlers();
   setupLogHandlers();
   setupWeightsHandlers();
   setupFoodAutocomplete();
-  setupDecimalInputs();
 
   renderAll();
   activateTab("home");
+  hideSplash();
 }
 
 document.addEventListener("DOMContentLoaded", init);
