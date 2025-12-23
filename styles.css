@@ -11,101 +11,174 @@
   --bad: #ef4444;
   --accent: #3b82f6;
 
+  /* iPhone safe areas */
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
 }
 
 *{box-sizing:border-box}
 html, body{height:100%}
+
+/* IMPORTANT: aide iOS à rendre les selects en "dark" (sinon options invisibles/chelou) */
+html{ color-scheme: dark; }
+
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-  background: var(--bg);
+  background: radial-gradient(1200px 700px at 30% -10%, rgba(59,130,246,.35), transparent 60%),
+              radial-gradient(900px 600px at 90% 10%, rgba(34,197,94,.18), transparent 55%),
+              var(--bg);
   color:var(--text);
   -webkit-font-smoothing: antialiased;
   padding-top: var(--safe-top);
-  overflow-x: hidden;
 }
 
 /* prevent iOS tap highlight */
 button, a { -webkit-tap-highlight-color: transparent; }
 
-/* Splash */
+/* ============================================================
+   SPLASH (simple + propre, 2s via JS)
+============================================================ */
 .splash{
   position:fixed;
   inset:0;
-  z-index:9999;
+  z-index:5000;
   display:flex;
   align-items:center;
   justify-content:center;
-  background: rgba(15,23,42,.98);
+  background: rgba(15,23,42,.92);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255,255,255,.06);
 }
-.splashCard{
+.splash__inner{
   width:min(420px, 92vw);
+  padding:22px;
+  border-radius:24px;
   border:1px solid rgba(255,255,255,.10);
   background: rgba(255,255,255,.05);
-  border-radius:24px;
-  padding:18px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.40);
+  box-shadow: 0 20px 80px rgba(0,0,0,.45);
   text-align:center;
 }
-.splashTitle{font-weight:1000;font-size:18px;margin-top:10px}
-.splashSub{color:var(--muted);font-weight:900;font-size:12px;margin-top:4px}
-.splashBar{
-  height:10px;border-radius:999px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.05);
-  overflow:hidden;
-  margin-top:14px;
-}
-.splashBar__fill{
-  height:100%;
-  width:0%;
-  background: rgba(59,130,246,.85);
-  animation: splashFill 1s ease forwards;
-}
-@keyframes splashFill{
-  from{width:0%}
-  to{width:100%}
-}
-
-/* Futuristic N logo (code only) */
-.logoN{
-  width:72px;height:72px;
-  margin:0 auto;
+.splash__logo{
+  width:74px;height:74px;
+  margin:0 auto 10px auto;
+  border-radius:22px;
   display:grid;
   place-items:center;
   position:relative;
+  background: linear-gradient(135deg, rgba(59,130,246,.95), rgba(34,197,94,.55));
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow: 0 18px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.22);
 }
-.logoN .n1,
-.logoN .n2{
-  position:absolute;
+.splashN{
   font-weight:1000;
-  font-size:56px;
-  line-height:1;
-}
-.logoN .n1{
-  color: rgba(59,130,246,.95);
-  transform: translate(1px, 1px);
-  text-shadow: 0 8px 18px rgba(59,130,246,.25);
-}
-.logoN .n2{
+  font-size:34px;
   color: rgba(226,232,240,.95);
-  transform: translate(-1px, -1px);
-  text-shadow: 0 10px 24px rgba(0,0,0,.35);
+  transform: perspective(600px) rotateX(10deg) rotateY(-14deg);
+}
+.splashCube{
+  position:absolute;
+  inset:-30%;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.18), transparent 55%);
+  transform: rotate(22deg);
+  pointer-events:none;
+}
+.splash__title{font-weight:1000;font-size:18px;margin-top:6px}
+.splash__sub{color:var(--muted);font-weight:900;font-size:12px;margin-top:4px}
+.splash__bar{
+  margin:14px auto 0 auto;
+  height:10px;
+  width:min(320px, 80%);
+  border-radius:999px;
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+}
+.splash__barFill{
+  height:100%;
+  width:0%;
+  background: rgba(59,130,246,.85);
+  border-radius:999px;
+  animation: splashFill 2s linear forwards;
+}
+@keyframes splashFill{
+  from{ width: 0%; }
+  to{ width: 100%; }
+}
+.splash.is-hide{
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .35s ease;
 }
 
-/* Topbar */
+/* ============================================================
+   TOPBAR
+============================================================ */
 .topbar{
   position:sticky; top:0; z-index:50;
   display:flex; gap:14px; align-items:center; justify-content:space-between;
   padding:14px 16px;
   border-bottom:1px solid var(--border);
   backdrop-filter: blur(10px);
-  background: rgba(15,23,42,.82);
+  background: rgba(15,23,42,.72);
 }
+
 .brand__title{font-weight:1000;font-size:18px}
 .brand__sub{color:var(--muted);font-weight:900;font-size:12px;margin-top:2px}
+
+/* Brand row with logo */
+.brandRow{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+/* Futuristic 3D N logo */
+.logoN{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  font-weight:1000;
+  font-size:22px;
+  letter-spacing:-0.5px;
+  color: rgba(226,232,240,.95);
+
+  background: linear-gradient(135deg,
+    rgba(59,130,246,.95),
+    rgba(34,197,94,.65)
+  );
+
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.20);
+
+  transform: perspective(600px) rotateX(10deg) rotateY(-14deg);
+  position:relative;
+  overflow:hidden;
+}
+.logoN::before{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  background: radial-gradient(circle at 30% 20%,
+    rgba(255,255,255,.22),
+    transparent 55%
+  );
+  transform: rotate(25deg);
+}
+.logoN::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,.14),
+    transparent 40%,
+    rgba(0,0,0,.18)
+  );
+}
 
 .tabs{display:flex;gap:8px;flex-wrap:wrap}
 .tab{
@@ -126,7 +199,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   max-width:1200px;
   margin:18px auto;
   padding:0 14px;
-  padding-bottom: calc(78px + var(--safe-bottom));
+  padding-bottom: calc(88px + var(--safe-bottom));
 }
 .panel{display:none}
 .panel.is-active{display:block}
@@ -170,9 +243,18 @@ input, select{
   border-radius: 14px;
   outline:none;
   font-weight:900;
+
+  /* Aide iOS */
+  color-scheme: dark;
 }
 input::placeholder{color:rgba(148,163,184,.7)}
 input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px rgba(59,130,246,.18)}
+
+/* Option fallback (selon browser) */
+select option{
+  color:#0f172a;
+  background:#e2e8f0;
+}
 
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .btn{
@@ -190,12 +272,7 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
 }
 .btn:hover{filter:brightness(1.08)}
 
-.tableWrap{
-  overflow:auto;
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.10);
-  max-width: 100%;
-}
+.tableWrap{overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.10)}
 .table{width:100%;border-collapse:collapse;min-width:850px;background:rgba(0,0,0,.16)}
 .table th, .table td{
   padding:10px 10px;
@@ -240,12 +317,63 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
   grid-template-columns: 1fr 1fr;
   gap:12px;
 }
-.homeDate{
+
+/* ============================================================
+   DATE BAR (FIX: même style que le reste)
+============================================================ */
+.dateBar{
   display:flex;
-  gap:12px;
-  align-items:flex-end;
+  align-items:center;
+  gap:10px;
   flex-wrap:wrap;
+
+  padding:10px 12px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.14);
 }
+.iconBtn{
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  height:42px;
+  min-width:44px;
+  padding:0 12px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.iconBtn:hover{filter:brightness(1.08)}
+
+.dateBtn{
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  height:42px;
+  padding:0 14px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight:1000;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  white-space:nowrap;
+}
+.dateBtn__ico{opacity:.9}
+
+/* Input date: pas display none (sinon iOS n’ouvre pas), on le cache proprement */
+.dateHidden{
+  position:absolute;
+  left:-9999px;
+  width:1px;
+  height:1px;
+  opacity:0;
+}
+
+/* Toggle box déjà ok */
 .toggleBox{
   display:flex; align-items:center; gap:10px;
   padding:10px 12px;
@@ -364,20 +492,16 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
 }
 .switch input:checked + .slider:before{transform:translateX(24px)}
 
-/* Charts */
-.chartWrap{
+/* Charts responsive (fix iPhone gigantic canvas) */
+.chart{
   width:100%;
   max-width:100%;
-  overflow:hidden;
+  height:240px;
+  max-height:240px;
   border-radius:18px;
   border:1px solid rgba(255,255,255,.10);
   background: rgba(0,0,0,.14);
   margin-top:10px;
-}
-.chart{
-  display:block;
-  width:100%;
-  height:220px;
 }
 
 /* Log grouped */
@@ -387,15 +511,10 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
   border-radius:18px;
   border:1px solid rgba(255,255,255,.10);
   background: rgba(0,0,0,.14);
-  max-width: 100%;
-  overflow:hidden;
 }
 .logDate__title{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  font-weight:1000;
-  margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-weight:1000;margin-bottom:8px;
 }
 .mealBlock{
   border:1px solid rgba(255,255,255,.08);
@@ -403,18 +522,14 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
   border-radius:14px;
   padding:10px;
   margin-top:10px;
-  max-width:100%;
 }
 .mealHead{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  font-weight:1000;
-  color:var(--text);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-weight:1000;color:var(--text);
 }
 .mealHead small{color:var(--muted);font-weight:1000}
 .mealItems{margin-top:10px}
-.mealItems table{min-width:720px}
+.mealItems table{min-width:700px}
 
 .calcGrid{display:grid;gap:10px;margin-top:6px}
 .calcRow{
@@ -426,7 +541,7 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
 .calcRow span{color:var(--muted);font-weight:1000;font-size:13px}
 .calcRow b{font-weight:1000}
 
-/* Autocomplete */
+/* Autocomplete (iPhone-friendly) */
 .autoWrap{position:relative}
 .autoList{
   position:absolute;
@@ -450,12 +565,12 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
 .autoItem:hover{background: rgba(59,130,246,.18)}
 .autoItem small{display:block;color:rgba(148,163,184,.9);font-weight:900;margin-top:2px}
 
-/* Bottom nav (serrée) */
+/* Bottom nav (mobile app) */
 .bottomNav{
   position: fixed;
   left:0; right:0; bottom:0;
-  padding: 6px 8px calc(6px + var(--safe-bottom));
-  background: rgba(15,23,42,.90);
+  padding: 10px 10px calc(10px + var(--safe-bottom));
+  background: rgba(15,23,42,.86);
   backdrop-filter: blur(12px);
   border-top:1px solid rgba(255,255,255,.10);
   display:none;
@@ -464,67 +579,27 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
 .bottomNav{
   display:grid;
   grid-template-columns: repeat(5, 1fr);
-  gap:6px;
+  gap:8px;
 }
 .btab{
   border:1px solid rgba(255,255,255,.10);
   background: rgba(255,255,255,.04);
   color: var(--text);
-  border-radius: 14px;
-  padding:8px 6px;
+  border-radius: 16px;
+  padding:10px 8px;
   font-weight:1000;
   cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
   flex-direction:column;
-  gap:4px;
+  gap:6px;
 }
 .btab .ico{font-size:16px; line-height:1}
-.btab span{font-size:10px; opacity:.92}
+.btab span{font-size:11px; opacity:.92}
 .btab.is-active{
   background: rgba(59,130,246,.22);
   border-color: rgba(59,130,246,.55);
-}
-
-/* Date picker */
-.datePicker{
-  display:grid;
-  grid-template-columns: 44px 1fr 44px;
-  gap:10px;
-  align-items:center;
-}
-.dateNav{
-  height:44px;
-  border-radius:16px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-  font-weight:1000;
-  cursor:pointer;
-  display:grid;
-  place-items:center;
-  font-size:18px;
-}
-.dateCenter{
-  position:relative;
-  height:44px;
-  border-radius:16px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.16);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-}
-.dateLabel{font-weight:1000;color:var(--text);text-align:center}
-.dateInputOverlay{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  opacity:0;
-  border:0;
-  background:transparent;
-  cursor:pointer;
 }
 
 /* Responsive */
@@ -534,6 +609,7 @@ input:focus, select:focus{border-color:rgba(59,130,246,.6); box-shadow:0 0 0 3px
   .grid2{grid-template-columns:1fr}
   .homeTopRow{grid-template-columns:1fr}
   .table{min-width:760px}
+  .chart{height:220px;max-height:220px}
   .tabs--top{display:none}
   .bottomNav{display:grid}
 }

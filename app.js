@@ -1,14 +1,28 @@
 "use strict";
 
 /* ============================================================
+   PROFILS (3 comptes)
+   - foods = commun
+   - settings/log/weights/dayflags = par profil
+============================================================ */
+const PROFILE_LIST = ["alban","ilir","afrim"];
+const K_ACTIVE_PROFILE = "nutrition_active_profile";
+const K_FOODS = "nutrition_foods_common";
+
+function keyFor(profile, base){
+  return `nutrition_${base}__${profile}`;
+}
+function getActiveProfile(){
+  const p = (localStorage.getItem(K_ACTIVE_PROFILE) || "alban").toLowerCase();
+  return PROFILE_LIST.includes(p) ? p : "alban";
+}
+function setActiveProfile(p){
+  localStorage.setItem(K_ACTIVE_PROFILE, p);
+}
+
+/* ============================================================
    STORAGE
 ============================================================ */
-const K_SETTINGS = "nutrition_settings";
-const K_FOODS    = "nutrition_foods";
-const K_LOG      = "nutrition_log";
-const K_WEIGHTS  = "nutrition_weights";
-const K_DAYFLAGS = "nutrition_dayflags";
-
 function lsGet(key, fallback){
   try{
     const raw = localStorage.getItem(key);
@@ -37,14 +51,6 @@ function todayISO(){
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
-function daysBackISO(n){
-  const d = new Date();
-  d.setDate(d.getDate()-n);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 function addDaysISO(dateISO, delta){
   const d = new Date(dateISO + "T00:00:00");
   d.setDate(d.getDate() + delta);
@@ -53,7 +59,6 @@ function addDaysISO(dateISO, delta){
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
-
 function fmt0(n){
   const x = Number(n);
   if(!Number.isFinite(x)) return "0";
@@ -73,100 +78,59 @@ function escapeHtml(str){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
+function daysBackISO(n){
+  const d = new Date();
+  d.setDate(d.getDate()-n);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-/* iPhone decimal: accept "0,5" "1.2" "1," etc without resetting */
-function numVal(v){
-  if(v === null || v === undefined) return 0;
-  let s = String(v).trim();
-  if(!s) return 0;
-
-  // keep digits + separators + minus
-  s = s.replace(/[^\d,.\-]/g, "");
-
-  // allow partial input (ends with dot/comma)
-  if(/[,.]$/.test(s)) {
-    const cut = s.slice(0, -1).replace(",", ".");
-    const x = Number(cut);
-    return Number.isFinite(x) ? x : 0;
-  }
-
-  // normalize comma -> dot (first comma)
-  s = s.replace(",", ".");
+/* IMPORTANT iPhone : accepte virgule et point
+   et n'explose pas si l'utilisateur tape "0," ou "1."
+*/
+function parseDecimalLoose(v){
+  const s = String(v ?? "").trim().replace(",", ".");
+  if(s === "" || s === "." || s === "-" || s === "-.") return 0;
   const x = Number(s);
   return Number.isFinite(x) ? x : 0;
 }
 
-function formatDateLabel(dateISO){
-  const d = new Date(dateISO + "T00:00:00");
-  try{
-    return new Intl.DateTimeFormat("fr-CH", {
-      weekday:"short",
-      day:"2-digit",
-      month:"short",
-      year:"numeric"
-    }).format(d);
-  }catch{
-    return dateISO;
+/* Nettoie input en live (sans casser la saisie)
+   Garde chiffres + , .
+*/
+function sanitizeDecimalText(s){
+  s = String(s ?? "");
+  s = s.replace(/\s+/g,"");
+  s = s.replace(/[^0-9.,-]/g,"");
+  const firstSep = s.match(/[.,]/);
+  if(firstSep){
+    const idx = s.indexOf(firstSep[0]);
+    const head = s.slice(0, idx+1);
+    const tail = s.slice(idx+1).replace(/[.,]/g,"");
+    s = head + tail;
   }
-}
-function updateHomeDateUI(){
-  const date = $("#homeDate")?.value || todayISO();
-  const label = $("#dateLabel");
-  if(label) label.textContent = formatDateLabel(date);
+  return s;
 }
 
 /* ============================================================
-   PRESET CATEGORIES
+   SPLASH (durée via data-ms)
 ============================================================ */
-const PRESET_CATS = [
-  "Laitier","Légume","Viande","Poisson","Fruit",
-  "Glucide","Lipide","Boisson","Snack","Autre"
-];
+function runSplashOnce(){
+  const splash = document.getElementById("splash");
+  if(!splash) return;
 
-function fillCategorySelects(){
-  const selAdd = $("#fCatSelect");
-  const selFilter = $("#foodCatFilter");
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
 
-  if(selAdd){
-    selAdd.innerHTML = "";
-    for(const c of PRESET_CATS){
-      const opt = document.createElement("option");
-      opt.value = c;
-      opt.textContent = c;
-      selAdd.appendChild(opt);
-    }
-    selAdd.value = "Laitier";
-  }
+  const ms = parseInt(splash.dataset.ms || "1000", 10);
 
-  if(selFilter){
-    // remove any old dynamic options (keep first "Toutes")
-    const keep0 = selFilter.querySelector('option[value="__all__"]');
-    selFilter.innerHTML = "";
-    selFilter.appendChild(keep0);
-
-    PRESET_CATS.filter(c => c !== "Autre").forEach(c=>{
-      const opt = document.createElement("option");
-      opt.value = c;
-      opt.textContent = c;
-      selFilter.appendChild(opt);
-    });
-  }
-}
-
-function setupCategoryBehavior(){
-  const sel = $("#fCatSelect");
-  const wrap = $("#fCatCustomWrap");
-  const inp = $("#fCatCustom");
-  if(!sel || !wrap || !inp) return;
-
-  const apply = () => {
-    const isOther = sel.value === "Autre";
-    wrap.style.display = isOther ? "flex" : "none";
-    if(!isOther) inp.value = "";
-  };
-
-  sel.addEventListener("change", apply);
-  apply();
+  setTimeout(() => {
+    splash.classList.add("is-hide");
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+  }, ms);
 }
 
 /* ============================================================
@@ -174,21 +138,23 @@ function setupCategoryBehavior(){
 ============================================================ */
 const defaultSettings = {
   sex:"M", age:23, height:178, weight:90,
-  activity:1.55, goal:"cut", rate:0.5,
+  activity:1.2, goal:"cut", rate:0.5,
   protKg:2.0, fatKg:0.7, fiber:30, sodium:2300, water:3.0,
   trainingDelta: +200,
   restDelta: 0,
   kcal:2200, p:170, c:220, f:70
 };
 
-let settings = lsGet(K_SETTINGS, structuredClone(defaultSettings));
+let profile = getActiveProfile();
+
+let settings = lsGet(keyFor(profile,"settings"), structuredClone(defaultSettings));
 let foods    = lsGet(K_FOODS, []);
-let log      = lsGet(K_LOG, []);
-let weights  = lsGet(K_WEIGHTS, []);
-let dayFlags = lsGet(K_DAYFLAGS, {});
+let log      = lsGet(keyFor(profile,"log"), []);
+let weights  = lsGet(keyFor(profile,"weights"), []);
+let dayFlags = lsGet(keyFor(profile,"dayflags"), {});
 
 /* ============================================================
-   CALC
+   CALC (Mifflin + Targets)
 ============================================================ */
 function mifflinBMR({sex, weight, height, age}){
   const s = (sex === "M") ? 5 : -161;
@@ -199,11 +165,13 @@ function calcTargetsFromInputs(s){
   const sexConst = (s.sex === "M") ? 5 : -161;
   const bmr = mifflinBMR(s);
   const tdee = bmr * Number(s.activity || 1.2);
+
   const daily = (Number(s.rate || 0) * 7700) / 7;
 
   let delta = 0;
   if(s.goal === "cut") delta = -daily;
   else if(s.goal === "bulk") delta = +daily;
+  else delta = 0;
 
   const targetKcal = tdee + delta;
 
@@ -233,13 +201,13 @@ function findFoodByName(name){
 }
 
 function macrosForItem(food, grams){
-  const g = numVal(grams);
+  const g = parseDecimalLoose(grams);
   const factor = g / 100;
   return {
-    kcal: (numVal(food.kcal100) * factor),
-    p: (numVal(food.p100) * factor),
-    c: (numVal(food.g100) * factor),
-    f: (numVal(food.l100) * factor)
+    kcal: (parseDecimalLoose(food.kcal100) * factor),
+    p: (parseDecimalLoose(food.p100) * factor),
+    c: (parseDecimalLoose(food.g100) * factor),
+    f: (parseDecimalLoose(food.l100) * factor)
   };
 }
 
@@ -276,6 +244,7 @@ function kpiStateGeneric(pct){
 
 function getAlerts(consumed, targets, hourNow){
   const out = [];
+
   if(targets.p > 0 && consumed.p < 0.7*targets.p && hourNow >= 14){
     out.push("Protéines basses : vise 40–50g au prochain repas.");
   }
@@ -283,10 +252,13 @@ function getAlerts(consumed, targets, hourNow){
     out.push("Lipides trop bas : ajoute 15–25g (huile d’olive, œufs, noix).");
   }
   if(targets.kcal > 0 && consumed.kcal > targets.kcal){
-    out.push("Calories dépassées : reste light ce soir.");
+    out.push("Calories dépassées : reste light sur glucides ce soir.");
+  }
+  if(settings.fiber > 0 && hourNow >= 16){
+    out.push("Fibres : pense légumes + fruit.");
   }
   if(out.length === 0){
-    out.push("Régulier > parfait. Ajoute tes repas, ajuste ensuite.");
+    out.push("Régulier > parfait. Remplis le journal, ajuste ensuite.");
   }
   return out.slice(0,4);
 }
@@ -304,6 +276,7 @@ function activateTab(key){
 
   if(key === "stats") renderCharts();
 }
+
 function setupTabs(){
   const bind = (btn) => {
     btn.addEventListener("click", () => {
@@ -317,12 +290,12 @@ function setupTabs(){
 }
 
 /* ============================================================
-   HOME
+   HOME: date bar + targets
 ============================================================ */
 function dayTypeFor(dateISO){ return dayFlags[dateISO] || "rest"; }
 function setDayType(dateISO, type){
   dayFlags[dateISO] = type;
-  lsSet(K_DAYFLAGS, dayFlags);
+  lsSet(keyFor(profile,"dayflags"), dayFlags);
 }
 
 function effectiveTargetsForDate(dateISO){
@@ -362,10 +335,17 @@ function setKpiBlock(key, consumed, target, unit, stateFn){
   $("#bar_"+key).style.width = `${Math.round(pct*100)}%`;
 }
 
+function updateDateLabel(dateISO){
+  const d = new Date(dateISO + "T00:00:00");
+  const opts = { weekday:"short", day:"2-digit", month:"short" };
+  const label = d.toLocaleDateString("fr-FR", opts);
+  $("#dateLabel").textContent = `${label} · ${dateISO}`;
+}
+
 function renderHome(){
   const date = $("#homeDate").value || todayISO();
   $("#homeDate").value = date;
-  updateHomeDateUI();
+  updateDateLabel(date);
 
   const type = dayTypeFor(date);
   const toggle = $("#dayTrainingToggle");
@@ -396,11 +376,12 @@ function renderHome(){
   }
 }
 
-/* Autocomplete iOS */
+/* ============================================================
+   Autocomplete iOS pour #qaFood
+============================================================ */
 function setupFoodAutocomplete(){
   const input = $("#qaFood");
   const box = $("#qaFoodAuto");
-  if(!input || !box) return;
 
   function hide(){ box.style.display = "none"; box.innerHTML = ""; }
   function show(){ box.style.display = "block"; }
@@ -431,77 +412,104 @@ function setupFoodAutocomplete(){
 
   input.addEventListener("input", () => renderList(input.value));
   input.addEventListener("focus", () => renderList(input.value));
+
   document.addEventListener("click", (e) => {
     if(e.target === input || box.contains(e.target)) return;
     hide();
   });
+
   input.addEventListener("keydown", (e) => {
     if(e.key === "Escape") hide();
   });
 }
 
+/* ============================================================
+   HOME handlers
+============================================================ */
+function repairProfileSelect(){
+  const sel = $("#activeProfile");
+  if(!sel) return;
+
+  // Si jamais iOS / cache / ancienne version => select incomplet, on le reconstruit
+  if(sel.options.length < PROFILE_LIST.length){
+    const labels = { alban:"Alban", ilir:"Ilir", afrim:"Afrim" };
+    sel.innerHTML = "";
+    for(const p of PROFILE_LIST){
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = labels[p] || p;
+      sel.appendChild(opt);
+    }
+  }
+}
+
 function setupHomeHandlers(){
-  // date nav
-  const prev = $("#datePrev");
-  const next = $("#dateNext");
-  const homeDate = $("#homeDate");
+  repairProfileSelect();
 
-  if(homeDate){
-    homeDate.value = homeDate.value || todayISO();
-    homeDate.addEventListener("change", ()=>{
-      updateHomeDateUI();
-      renderHome();
-    });
-  }
-  if(prev){
-    prev.addEventListener("click", ()=>{
-      const d = homeDate.value || todayISO();
-      homeDate.value = addDaysISO(d, -1);
-      updateHomeDateUI();
-      renderHome();
-    });
-  }
-  if(next){
-    next.addEventListener("click", ()=>{
-      const d = homeDate.value || todayISO();
-      homeDate.value = addDaysISO(d, +1);
-      updateHomeDateUI();
-      renderHome();
-    });
-  }
+  // Date bar
+  $("#btnPrevDay").addEventListener("click", ()=>{
+    const d = $("#homeDate").value || todayISO();
+    $("#homeDate").value = addDaysISO(d, -1);
+    renderHome();
+  });
+  $("#btnNextDay").addEventListener("click", ()=>{
+    const d = $("#homeDate").value || todayISO();
+    $("#homeDate").value = addDaysISO(d, +1);
+    renderHome();
+  });
 
-  $("#dayTrainingToggle")?.addEventListener("change", ()=>{
+  // IMPORTANT: iOS => showPicker pas dispo, donc click() est indispensable
+  $("#btnOpenDate").addEventListener("click", ()=>{
+    const input = $("#homeDate");
+    input.showPicker?.();
+    input.focus();
+    input.click();
+  });
+
+  $("#homeDate").addEventListener("change", renderHome);
+
+  $("#dayTrainingToggle").addEventListener("change", ()=>{
     const date = $("#homeDate").value || todayISO();
     setDayType(date, $("#dayTrainingToggle").checked ? "training" : "rest");
     renderHome();
   });
 
-  $("#btnRefreshHome")?.addEventListener("click", renderHome);
+  $("#btnRefreshHome").addEventListener("click", renderHome);
 
-  $("#btnPlus50")?.addEventListener("click", ()=>{
-    $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 50);
+  // grams input: sanitize (keeps "0,5")
+  $("#qaGrams").addEventListener("input", (e)=>{
+    const cur = e.target.value;
+    const clean = sanitizeDecimalText(cur);
+    if(clean !== cur) e.target.value = clean;
   });
-  $("#btnPlus100")?.addEventListener("click", ()=>{
-    $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + 100);
+
+  $("#btnPlus50").addEventListener("click", ()=>{
+    const v = parseDecimalLoose($("#qaGrams").value);
+    $("#qaGrams").value = String(Math.max(1, v + 50));
   });
-  $("#btnPlusPortion")?.addEventListener("click", ()=>{
+  $("#btnPlus100").addEventListener("click", ()=>{
+    const v = parseDecimalLoose($("#qaGrams").value);
+    $("#qaGrams").value = String(Math.max(1, v + 100));
+  });
+  $("#btnPlusPortion").addEventListener("click", ()=>{
     const foodName = $("#qaFood").value.trim();
     const f = findFoodByName(foodName);
-    const portion = f ? (numVal(f.portionGrams)||0) : 0;
+    const portion = f ? (parseDecimalLoose(f.portionGrams)||0) : 0;
     if(portion > 0){
-      $("#qaGrams").value = Math.max(1, (numVal($("#qaGrams").value) || 0) + portion);
+      const v = parseDecimalLoose($("#qaGrams").value);
+      $("#qaGrams").value = String(Math.max(1, v + portion));
     }else{
       alert("Pas de portion définie (mets Portion (g) dans Base aliments).");
     }
   });
 
-  $("#quickAddForm")?.addEventListener("submit", (e)=>{
+  $("#quickAddForm").addEventListener("submit", (e)=>{
     e.preventDefault();
 
     const date = $("#homeDate").value || todayISO();
     const meal = $("#qaMeal").value || "";
     const foodName = $("#qaFood").value.trim();
-    const grams = numVal($("#qaGrams").value);
+    const grams = parseDecimalLoose($("#qaGrams").value);
     const note = $("#qaNote").value.trim();
 
     if(!meal){ alert("Choisis un repas."); return; }
@@ -515,12 +523,22 @@ function setupHomeHandlers(){
     }
 
     log.push({ id:uid(), date, meal, foodName, grams, note });
-    lsSet(K_LOG, log);
+    lsSet(keyFor(profile,"log"), log);
 
-    $("#qaGrams").value = 100;
+    $("#qaGrams").value = "100";
     $("#qaNote").value = "";
 
     renderAll();
+  });
+
+  // Profile switch
+  $("#activeProfile").value = profile;
+  $("#btnProfileSwitch").addEventListener("click", ()=>{
+    const p = $("#activeProfile").value;
+    if(!PROFILE_LIST.includes(p)) return;
+    setActiveProfile(p);
+    loadProfile(p);
+    alert("Profil chargé ✅");
   });
 }
 
@@ -529,8 +547,8 @@ function setupHomeHandlers(){
 ============================================================ */
 function renderCalculator(){
   $("#pSex").value = settings.sex;
-  $("#pAge").value = settings.age;
-  $("#pHeight").value = settings.height;
+  $("#pAge").value = String(settings.age ?? "");
+  $("#pHeight").value = String(settings.height ?? "");
   $("#pWeight").value = String(settings.weight ?? "");
   $("#pActivity").value = String(settings.activity);
   $("#pGoal").value = settings.goal;
@@ -538,12 +556,12 @@ function renderCalculator(){
 
   $("#pProtKg").value = String(settings.protKg ?? "");
   $("#pFatKg").value = String(settings.fatKg ?? "");
-  $("#pFiber").value = settings.fiber;
-  $("#pSodium").value = settings.sodium;
+  $("#pFiber").value = String(settings.fiber ?? "");
+  $("#pSodium").value = String(settings.sodium ?? "");
   $("#pWater").value = String(settings.water ?? "");
 
-  $("#pTrainingDelta").value = settings.trainingDelta;
-  $("#pRestDelta").value = settings.restDelta;
+  $("#pTrainingDelta").value = String(settings.trainingDelta ?? "");
+  $("#pRestDelta").value = String(settings.restDelta ?? "");
 
   const out = calcTargetsFromInputs(settings);
   $("#cSexConst").textContent = fmt0(out.sexConst);
@@ -561,41 +579,59 @@ function renderCalculator(){
 
 function readSettingsInputs(){
   settings.sex = $("#pSex").value;
-  settings.age = numVal($("#pAge").value);
-  settings.height = numVal($("#pHeight").value);
 
-  settings.weight = numVal($("#pWeight").value);
-  settings.activity = numVal($("#pActivity").value) || 1.2;
+  settings.age = parseDecimalLoose($("#pAge").value);
+  settings.height = parseDecimalLoose($("#pHeight").value);
+  settings.weight = parseDecimalLoose($("#pWeight").value);
+
+  settings.activity = parseDecimalLoose($("#pActivity").value) || 1.2;
   settings.goal = $("#pGoal").value;
-  settings.rate = numVal($("#pRate").value);
+  settings.rate = parseDecimalLoose($("#pRate").value);
 
-  settings.protKg = numVal($("#pProtKg").value);
-  settings.fatKg = numVal($("#pFatKg").value);
-  settings.fiber = numVal($("#pFiber").value);
-  settings.sodium = numVal($("#pSodium").value);
-  settings.water = numVal($("#pWater").value);
+  settings.protKg = parseDecimalLoose($("#pProtKg").value);
+  settings.fatKg = parseDecimalLoose($("#pFatKg").value);
+  settings.fiber = parseDecimalLoose($("#pFiber").value);
+  settings.sodium = parseDecimalLoose($("#pSodium").value);
+  settings.water = parseDecimalLoose($("#pWater").value);
 
-  settings.trainingDelta = numVal($("#pTrainingDelta").value);
-  settings.restDelta = numVal($("#pRestDelta").value);
+  settings.trainingDelta = parseDecimalLoose($("#pTrainingDelta").value);
+  settings.restDelta = parseDecimalLoose($("#pRestDelta").value);
 
-  lsSet(K_SETTINGS, settings);
+  lsSet(keyFor(profile,"settings"), settings);
+}
+
+function sanitizeDecimalsOnInputs(selectors){
+  selectors.forEach(sel=>{
+    const el = $(sel);
+    if(!el) return;
+    el.addEventListener("input", ()=>{
+      const cur = el.value;
+      const clean = sanitizeDecimalText(cur);
+      if(clean !== cur) el.value = clean;
+    });
+  });
 }
 
 function setupSettingsHandlers(){
+  // sanitize numeric/decimal fields (fix iPhone reset)
+  sanitizeDecimalsOnInputs([
+    "#pAge","#pHeight","#pWeight","#pRate","#pProtKg","#pFatKg","#pFiber","#pSodium","#pWater","#pTrainingDelta","#pRestDelta","#wKg",
+    "#fKcal","#fP","#fC","#fF","#fPortion"
+  ]);
+
   const live = [
     "#pSex","#pAge","#pHeight","#pWeight","#pActivity","#pGoal","#pRate",
     "#pProtKg","#pFatKg","#pFiber","#pSodium","#pWater","#pTrainingDelta","#pRestDelta"
   ];
-
   live.forEach(sel=>{
-    $(sel)?.addEventListener("input", ()=>{
+    $(sel).addEventListener("input", ()=>{
       readSettingsInputs();
       renderCalculator();
       renderHome();
     });
   });
 
-  $("#btnApplyCalculator")?.addEventListener("click", ()=>{
+  $("#btnApplyCalculator").addEventListener("click", ()=>{
     readSettingsInputs();
     if(!(settings.age>0 && settings.height>0 && settings.weight>0)){
       alert("Remplis au minimum âge / taille / poids.");
@@ -608,20 +644,25 @@ function setupSettingsHandlers(){
     settings.f    = Math.round(out.fatG);
     settings.c    = Math.round(out.carbG);
 
-    lsSet(K_SETTINGS, settings);
+    lsSet(keyFor(profile,"settings"), settings);
     renderAll();
-    alert("Objectifs mis à jour ✅");
+    alert("Objectifs du jour mis à jour ✅");
   });
 
-  $("#btnResetSettings")?.addEventListener("click", ()=>{
+  $("#btnResetSettings").addEventListener("click", ()=>{
     settings = structuredClone(defaultSettings);
-    lsSet(K_SETTINGS, settings);
+    lsSet(keyFor(profile,"settings"), settings);
     renderAll();
   });
+
+  // Export/Import
+  $("#btnExport").addEventListener("click", exportBackup);
+  $("#btnImport").addEventListener("click", ()=> $("#importFile").click());
+  $("#importFile").addEventListener("change", importBackupFile);
 }
 
 /* ============================================================
-   FOODS
+   FOODS (commune)
 ============================================================ */
 function seedFoodsStarter(){
   const starter = [
@@ -633,10 +674,10 @@ function seedFoodsStarter(){
     {name:"Riz (cuit)",category:"Glucide",kcal100:130,p100:2.4,g100:28,l100:0.3,portionGrams:250},
     {name:"Pâtes (cuites)",category:"Glucide",kcal100:150,p100:5,g100:30,l100:1,portionGrams:250},
     {name:"Poulet (blanc cuit)",category:"Viande",kcal100:165,p100:31,g100:0,l100:3.6,portionGrams:200},
+    {name:"Saumon (cuit)",category:"Poisson",kcal100:206,p100:22,g100:0,l100:13,portionGrams:150},
     {name:"Skyr nature",category:"Laitier",kcal100:60,p100:11,g100:4,l100:0.2,portionGrams:300},
     {name:"Huile d'olive",category:"Lipide",kcal100:884,p100:0,g100:0,l100:100,portionGrams:10}
   ];
-
   for(const s of starter){
     if(findFoodByName(s.name)) continue;
     foods.push({ id:uid(), favorite:false, ...s });
@@ -646,7 +687,6 @@ function seedFoodsStarter(){
 
 function renderFoodsDatalist(){
   const dl = $("#foodsDatalist");
-  if(!dl) return;
   dl.innerHTML = "";
   const sorted = [...foods].sort((a,b)=> a.name.localeCompare(b.name));
   for(const f of sorted){
@@ -657,13 +697,13 @@ function renderFoodsDatalist(){
 }
 
 function getFoodsFiltered(){
-  const term = ($("#foodSearch")?.value||"").trim().toLowerCase();
-  const catValue = ($("#foodCatFilter")?.value || "__all__");
-  const sort = $("#foodSort")?.value || "fav";
+  const term = ($("#foodSearch").value||"").trim().toLowerCase();
+  const catSel = ($("#foodCatSelect").value||"").trim();
+  const sort = $("#foodSort").value;
 
   let arr = foods.filter(f=>{
     const okTerm = !term || f.name.toLowerCase().includes(term);
-    const okCat = (catValue === "__all__") || ((f.category || "") === catValue);
+    const okCat  = !catSel || catSel === "Toutes" || (catSel==="" ? true : (f.category||"") === catSel) || (catSel==="Autre" && !(["Laitier","Légume","Fruit","Viande","Poisson","Glucide","Lipide","Boisson"].includes(f.category||"")));
     return okTerm && okCat;
   });
 
@@ -677,7 +717,6 @@ function getFoodsFiltered(){
 
 function renderFoodsTable(){
   const tb = $("#foodsTable tbody");
-  if(!tb) return;
   tb.innerHTML = "";
 
   for(const f of getFoodsFiltered()){
@@ -718,20 +757,23 @@ function renderFoodsTable(){
 }
 
 function setupFoodHandlers(){
-  $("#foodForm")?.addEventListener("submit", (e)=>{
+  $("#fCat").addEventListener("change", ()=>{
+    const v = $("#fCat").value;
+    $("#fCatOtherWrap").style.display = (v === "Autre") ? "flex" : "none";
+  });
+
+  $("#foodForm").addEventListener("submit", (e)=>{
     e.preventDefault();
 
     const name = $("#fName").value.trim();
     if(!name){ alert("Nom aliment manquant."); return; }
     if(findFoodByName(name)){ alert("Cet aliment existe déjà."); return; }
 
-    const catSel = $("#fCatSelect").value;
-    const catCustom = ($("#fCatCustom").value || "").trim();
-    const category = (catSel === "Autre") ? catCustom : catSel;
-
-    if(catSel === "Autre" && !category){
-      alert("Écris une catégorie pour 'Autre'.");
-      return;
+    let category = $("#fCat").value;
+    if(category === "Autre"){
+      const other = ($("#fCatOther").value || "").trim();
+      if(!other){ alert("Catégorie 'Autre' : écris une catégorie."); return; }
+      category = other;
     }
 
     const item = {
@@ -739,45 +781,42 @@ function setupFoodHandlers(){
       favorite: false,
       name,
       category,
-      kcal100: numVal($("#fKcal").value),
-      p100: numVal($("#fP").value),
-      g100: numVal($("#fC").value),
-      l100: numVal($("#fF").value),
-      portionGrams: numVal($("#fPortion").value) || 0
+      kcal100: parseDecimalLoose($("#fKcal").value),
+      p100: parseDecimalLoose($("#fP").value),
+      g100: parseDecimalLoose($("#fC").value),
+      l100: parseDecimalLoose($("#fF").value),
+      portionGrams: parseDecimalLoose($("#fPortion").value) || 0
     };
 
     foods.push(item);
     lsSet(K_FOODS, foods);
 
     $("#foodForm").reset();
-    $("#fCatSelect").value = "Laitier";
-    $("#fCatCustomWrap").style.display = "none";
-    $("#fCatCustom").value = "";
-
+    $("#fCatOtherWrap").style.display = "none";
     renderAll();
   });
 
-  $("#btnSeed")?.addEventListener("click", ()=>{
+  $("#btnSeed").addEventListener("click", ()=>{
     seedFoodsStarter();
     renderAll();
     alert("Base starter ajoutée ✅");
   });
 
-  $("#btnClearFoods")?.addEventListener("click", ()=>{
+  $("#btnClearFoods").addEventListener("click", ()=>{
     if(!confirm("Vider la base aliments ?")) return;
     foods = [];
     lsSet(K_FOODS, foods);
     renderAll();
   });
 
-  ["#foodSearch","#foodCatFilter","#foodSort"].forEach(sel=>{
-    $(sel)?.addEventListener("input", renderFoodsTable);
-    $(sel)?.addEventListener("change", renderFoodsTable);
+  ["#foodSearch","#foodCatSelect","#foodSort"].forEach(sel=>{
+    $(sel).addEventListener("input", renderFoodsTable);
+    $(sel).addEventListener("change", renderFoodsTable);
   });
 }
 
 /* ============================================================
-   LOG
+   LOG GROUPED (par profil)
 ============================================================ */
 function inRangeByDays(dateISO, days){
   if(!days || days<=0) return true;
@@ -786,11 +825,10 @@ function inRangeByDays(dateISO, days){
 
 function renderLogGrouped(){
   const root = $("#logGrouped");
-  if(!root) return;
   root.innerHTML = "";
 
   const term = ($("#logSearch").value||"").trim().toLowerCase();
-  const range = numVal($("#logRange").value);
+  const range = parseDecimalLoose($("#logRange").value);
 
   let items = log.filter(it => inRangeByDays(it.date, range));
   if(term){
@@ -814,8 +852,6 @@ function renderLogGrouped(){
     return;
   }
 
-  const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
-
   for(const d of dates){
     const block = document.createElement("div");
     block.className = "logDate";
@@ -830,6 +866,7 @@ function renderLogGrouped(){
     `;
 
     const itemsDate = byDate.get(d);
+    const mealsOrder = ["Petit-déjeuner","Déjeuner","Dîner","Collation"];
     const byMeal = new Map();
     for(const it of itemsDate){
       if(!byMeal.has(it.meal)) byMeal.set(it.meal, []);
@@ -895,31 +932,31 @@ function renderLogGrouped(){
     btn.addEventListener("click", ()=>{
       const id = btn.dataset.delMeal;
       log = log.filter(x=>x.id!==id);
-      lsSet(K_LOG, log);
+      lsSet(keyFor(profile,"log"), log);
       renderAll();
     });
   });
 }
 
 function setupLogHandlers(){
-  $("#btnClearMeals")?.addEventListener("click", ()=>{
+  $("#btnClearMeals").addEventListener("click", ()=>{
     if(!confirm("Vider le journal repas ?")) return;
     log = [];
-    lsSet(K_LOG, log);
+    lsSet(keyFor(profile,"log"), log);
     renderAll();
   });
 
   ["#logSearch","#logRange"].forEach(sel=>{
-    $(sel)?.addEventListener("input", renderLogGrouped);
-    $(sel)?.addEventListener("change", renderLogGrouped);
+    $(sel).addEventListener("input", renderLogGrouped);
+    $(sel).addEventListener("change", renderLogGrouped);
   });
 }
 
 /* ============================================================
-   CHARTS (responsive canvas)
+   CHARTS (responsive + DPR iPhone)
 ============================================================ */
-function movingAverage(values, windowSize){
-  const w = Number(windowSize||0);
+function movingAverage(values, window){
+  const w = Number(window||0);
   if(!w || w<=1) return values;
   const out = [];
   for(let i=0;i<values.length;i++){
@@ -931,36 +968,38 @@ function movingAverage(values, windowSize){
   return out;
 }
 
-function setCanvasSize(canvas){
+function resizeCanvasToCSS(canvas){
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.max(320, Math.floor(rect.width * dpr));
-  const h = Math.max(220, Math.floor(rect.height * dpr));
-  canvas.width = w;
-  canvas.height = h;
-  return {W:w, H:h, dpr};
+  const w = Math.max(280, Math.floor(rect.width));
+  const h = Math.max(160, Math.floor(rect.height));
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {w, h};
 }
 
 function drawLineChart(canvas, labels, values, opts){
-  if(!canvas) return;
-  const {W, H} = setCanvasSize(canvas);
   const ctx = canvas.getContext("2d");
+  const {w:W, h:H} = resizeCanvasToCSS(canvas);
+
   ctx.clearRect(0,0,W,H);
 
   ctx.fillStyle = "rgba(0,0,0,0.10)";
   ctx.fillRect(0,0,W,H);
 
-  const padL = 56, padR = 18, padT = 22, padB = 36;
+  const padL = 46, padR = 14, padT = 18, padB = 30;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
   const minV = Math.min(...values, 0);
   const maxV = Math.max(...values, 1);
+
   const lo = (opts && Number.isFinite(opts.min)) ? opts.min : minV;
   const hi = (opts && Number.isFinite(opts.max)) ? opts.max : maxV;
   const range = Math.max(1e-9, hi - lo);
 
-  // grid
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
   for(let i=0;i<=4;i++){
@@ -971,20 +1010,19 @@ function drawLineChart(canvas, labels, values, opts){
     ctx.stroke();
   }
 
-  // title
   ctx.fillStyle = "rgba(226,232,240,0.85)";
-  ctx.font = "900 14px ui-sans-serif, system-ui, -apple-system, Segoe UI";
-  ctx.fillText(opts?.title || "", padL, 16);
+  ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
+  ctx.fillText(opts?.title || "", padL, 14);
 
   const n = values.length;
   if(n <= 1){
-    ctx.fillText("Pas assez de données", padL, padT + 24);
+    ctx.fillText("Pas assez de données", padL, padT + 20);
     return;
   }
 
-  // line
   ctx.strokeStyle = "rgba(59,130,246,0.95)";
   ctx.lineWidth = 2;
+
   ctx.beginPath();
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
@@ -993,27 +1031,23 @@ function drawLineChart(canvas, labels, values, opts){
   }
   ctx.stroke();
 
-  // points
   ctx.fillStyle = "rgba(226,232,240,0.9)";
   for(let i=0;i<n;i++){
     const x = padL + (plotW * (i/(n-1)));
     const y = padT + plotH * (1 - ((values[i]-lo)/range));
     ctx.beginPath();
-    ctx.arc(x,y,3.0,0,Math.PI*2);
+    ctx.arc(x,y,2.4,0,Math.PI*2);
     ctx.fill();
   }
 
-  // labels bottom
   ctx.fillStyle = "rgba(148,163,184,0.9)";
-  ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system, Segoe UI";
   const idxMid = Math.floor((n-1)/2);
-  ctx.fillText(labels[0] || "", padL, H-12);
-  ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 18, H-12);
-  ctx.fillText(labels[n-1] || "", padL + plotW - 38, H-12);
+  ctx.fillText(labels[0] || "", padL, H-10);
+  ctx.fillText(labels[idxMid] || "", padL + plotW/2 - 16, H-10);
+  ctx.fillText(labels[n-1] || "", padL + plotW - 30, H-10);
 
-  // y labels
-  ctx.fillText(String(Math.round(hi)), 8, padT+12);
-  ctx.fillText(String(Math.round(lo)), 8, padT+plotH);
+  ctx.fillText(String(Math.round(hi)), 6, padT+10);
+  ctx.fillText(String(Math.round(lo)), 6, padT+plotH);
 }
 
 function seriesForLastDays(days){
@@ -1031,6 +1065,28 @@ function seriesForLastDays(days){
   return {labels, valuesK, valuesP, valuesC, valuesF};
 }
 
+function renderCharts(){
+  const days = parseDecimalLoose($("#statsRange").value) || 30;
+  const metric = $("#statsMetric").value;
+  const smooth = parseDecimalLoose($("#statsSmooth").value) || 0;
+
+  const {labels, valuesK, valuesP, valuesC, valuesF} = seriesForLastDays(days);
+
+  let values = valuesK;
+  let title = "Calories (kcal)";
+  if(metric==="p"){ values = valuesP; title = "Protéines (g)"; }
+  if(metric==="c"){ values = valuesC; title = "Glucides (g)"; }
+  if(metric==="f"){ values = valuesF; title = "Lipides (g)"; }
+
+  values = movingAverage(values, smooth);
+
+  drawLineChart($("#macroChart"), labels, values, { title });
+  $("#macroChartHint").textContent = `Fenêtre: ${days} jours · Lissage: ${smooth ? (smooth+" jours") : "aucun"} · Source: Journal repas`;
+
+  renderWeightsTable();
+  renderWeightChart();
+}
+
 function renderWeightChart(){
   const canvas = $("#weightChart");
   const sorted = [...weights].sort((a,b)=> a.date.localeCompare(b.date));
@@ -1038,15 +1094,19 @@ function renderWeightChart(){
     drawLineChart(canvas, ["—"], [0], { title:"Poids (kg)" });
     return;
   }
+
   const slice = sorted.slice(Math.max(0, sorted.length-20));
   const labels = slice.map(x=> x.date.slice(5));
-  const values = slice.map(x=> numVal(x.kg||0));
+  const values = slice.map(x=> parseDecimalLoose(x.kg||0));
+
   drawLineChart(canvas, labels, values, { title:"Poids (kg)" });
 }
 
+/* ============================================================
+   WEIGHTS
+============================================================ */
 function renderWeightsTable(){
   const tb = $("#weightsTable tbody");
-  if(!tb) return;
   tb.innerHTML = "";
 
   const sorted = [...weights].sort((a,b)=> b.date.localeCompare(a.date));
@@ -1064,95 +1124,137 @@ function renderWeightsTable(){
     btn.addEventListener("click", ()=>{
       const id = btn.dataset.delWeight;
       weights = weights.filter(x=>x.id!==id);
-      lsSet(K_WEIGHTS, weights);
+      lsSet(keyFor(profile,"weights"), weights);
       renderCharts();
     });
   });
 }
 
-function renderCharts(){
-  const days = numVal($("#statsRange")?.value) || 30;
-  const metric = $("#statsMetric")?.value || "kcal";
-  const smooth = numVal($("#statsSmooth")?.value) || 0;
-
-  const {labels, valuesK, valuesP, valuesC, valuesF} = seriesForLastDays(days);
-
-  let values = valuesK;
-  let title = "Calories (kcal)";
-  if(metric==="p"){ values = valuesP; title = "Protéines (g)"; }
-  if(metric==="c"){ values = valuesC; title = "Glucides (g)"; }
-  if(metric==="f"){ values = valuesF; title = "Lipides (g)"; }
-
-  values = movingAverage(values, smooth);
-
-  drawLineChart($("#macroChart"), labels, values, { title });
-
-  const hint = $("#macroChartHint");
-  if(hint){
-    hint.textContent = `Fenêtre: ${days} jours · Lissage: ${smooth ? (smooth+" jours") : "aucun"} · Source: Journal repas`;
-  }
-
-  renderWeightsTable();
-  renderWeightChart();
-}
-
-/* ============================================================
-   WEIGHTS
-============================================================ */
 function setupWeightsHandlers(){
-  const wDate = $("#wDate");
-  const wKg = $("#wKg");
+  $("#wDate").value = todayISO();
 
-  if(wDate) wDate.value = todayISO();
+  $("#wKg").addEventListener("input", (e)=>{
+    const cur = e.target.value;
+    const clean = sanitizeDecimalText(cur);
+    if(clean !== cur) e.target.value = clean;
+  });
 
-  $("#weightForm")?.addEventListener("submit", (e)=>{
+  $("#weightForm").addEventListener("submit", (e)=>{
     e.preventDefault();
-    const date = wDate?.value || todayISO();
-    const kg = numVal(wKg?.value);
+    const date = $("#wDate").value || todayISO();
+    const kg = parseDecimalLoose($("#wKg").value);
     if(!(kg>0)){ alert("Poids invalide."); return; }
 
     weights.push({ id:uid(), date, kg });
-    lsSet(K_WEIGHTS, weights);
+    lsSet(keyFor(profile,"weights"), weights);
 
-    if(wKg) wKg.value = "";
+    $("#wKg").value = "";
     renderCharts();
   });
 
-  $("#btnClearWeights")?.addEventListener("click", ()=>{
+  $("#btnClearWeights").addEventListener("click", ()=>{
     if(!confirm("Vider l'historique de poids ?")) return;
     weights = [];
-    lsSet(K_WEIGHTS, weights);
+    lsSet(keyFor(profile,"weights"), weights);
     renderCharts();
   });
 
-  $("#btnRefreshCharts")?.addEventListener("click", renderCharts);
-  $("#statsRange")?.addEventListener("change", renderCharts);
-  $("#statsMetric")?.addEventListener("change", renderCharts);
-  $("#statsSmooth")?.addEventListener("change", renderCharts);
+  $("#btnRefreshCharts").addEventListener("click", renderCharts);
+  $("#statsRange").addEventListener("change", renderCharts);
+  $("#statsMetric").addEventListener("change", renderCharts);
+  $("#statsSmooth").addEventListener("change", renderCharts);
 
-  // critical: resize charts on iPhone rotation / address bar changes
   window.addEventListener("resize", ()=>{
-    if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
-  });
-  window.addEventListener("orientationchange", ()=>{
-    setTimeout(()=>{
-      if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
-    }, 200);
+    if($("#tab-stats").classList.contains("is-active")) renderCharts();
   });
 }
 
 /* ============================================================
-   SPLASH
+   BACKUP Export/Import
 ============================================================ */
-function hideSplash(){
-  const splash = $("#splash");
-  if(!splash) return;
+function exportBackup(){
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    activeProfile: profile,
+    foodsCommon: foods,
+    profiles: {}
+  };
 
-  setTimeout(()=>{
-    splash.style.opacity = "0";
-    splash.style.pointerEvents = "none";
-    setTimeout(()=> splash.remove(), 250);
-  }, 1000);
+  for(const p of PROFILE_LIST){
+    payload.profiles[p] = {
+      settings: lsGet(keyFor(p,"settings"), structuredClone(defaultSettings)),
+      log: lsGet(keyFor(p,"log"), []),
+      weights: lsGet(keyFor(p,"weights"), []),
+      dayflags: lsGet(keyFor(p,"dayflags"), {})
+    };
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `nutrition-backup-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function importBackupFile(e){
+  const file = e.target.files?.[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(String(reader.result || "{}"));
+      if(!data || typeof data !== "object") throw new Error("JSON invalide");
+
+      if(Array.isArray(data.foodsCommon)){
+        foods = data.foodsCommon;
+        lsSet(K_FOODS, foods);
+      }
+
+      const profs = data.profiles || {};
+      for(const p of PROFILE_LIST){
+        const pack = profs[p];
+        if(!pack) continue;
+
+        if(pack.settings) lsSet(keyFor(p,"settings"), pack.settings);
+        if(Array.isArray(pack.log)) lsSet(keyFor(p,"log"), pack.log);
+        if(Array.isArray(pack.weights)) lsSet(keyFor(p,"weights"), pack.weights);
+        if(Array.isArray(pack.dayflags)) lsSet(keyFor(p,"dayflags"), pack.dayflags);
+      }
+
+      const ap = (data.activeProfile || profile).toLowerCase();
+      if(PROFILE_LIST.includes(ap)) setActiveProfile(ap);
+
+      loadProfile(getActiveProfile());
+      alert("Import OK ✅");
+    }catch(err){
+      alert("Import impossible: fichier invalide.");
+      console.error(err);
+    }finally{
+      $("#importFile").value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================================
+   PROFILE load
+============================================================ */
+function loadProfile(p){
+  profile = p;
+
+  settings = lsGet(keyFor(profile,"settings"), structuredClone(defaultSettings));
+  log      = lsGet(keyFor(profile,"log"), []);
+  weights  = lsGet(keyFor(profile,"weights"), []);
+  dayFlags = lsGet(keyFor(profile,"dayflags"), {});
+
+  repairProfileSelect();
+  $("#activeProfile").value = profile;
+  renderAll();
 }
 
 /* ============================================================
@@ -1164,25 +1266,19 @@ function renderAll(){
     seedFoodsStarter();
   }
 
-  const homeDate = $("#homeDate");
-  if(homeDate) homeDate.value = homeDate.value || todayISO();
+  $("#homeDate").value = $("#homeDate").value || todayISO();
 
-  updateHomeDateUI();
   renderCalculator();
   renderFoodsDatalist();
   renderFoodsTable();
   renderLogGrouped();
   renderHome();
-
-  // if already on stats tab, refresh
-  if($("#tab-stats")?.classList.contains("is-active")) renderCharts();
 }
 
 function init(){
-  setupTabs();
-  fillCategorySelects();
-  setupCategoryBehavior();
+  runSplashOnce();
 
+  setupTabs();
   setupHomeHandlers();
   setupSettingsHandlers();
   setupFoodHandlers();
@@ -1190,9 +1286,17 @@ function init(){
   setupWeightsHandlers();
   setupFoodAutocomplete();
 
+  repairProfileSelect();
+  $("#activeProfile").value = profile;
+
   renderAll();
   activateTab("home");
-  hideSplash();
 }
 
+/* Run after DOM is ready */
 document.addEventListener("DOMContentLoaded", init);
+
+/* Extra: block pinch zoom on iOS (best effort) */
+document.addEventListener("gesturestart", (e)=> e.preventDefault(), {passive:false});
+document.addEventListener("gesturechange", (e)=> e.preventDefault(), {passive:false});
+document.addEventListener("gestureend", (e)=> e.preventDefault(), {passive:false});
