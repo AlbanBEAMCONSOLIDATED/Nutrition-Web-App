@@ -1,451 +1,500 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EN3RA INGENIERIE - Accueil</title>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="style.css">
+    <nav class="tabs" aria-label="Navigation">
+      <button class="tab is-active" data-tab="home">Accueil</button>
+      <button class="tab" data-tab="stats">Graphiques</button>
+      <button class="tab" data-tab="settings">Paramètres</button>
+      <button class="tab" data-tab="foods">Base aliments</button>
+      <button class="tab" data-tab="log">Journal repas</button>
+    </nav>
+  </header>
 
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <main class="container">
+    <!-- ACCUEIL -->
+    <section class="panel is-active" id="tab-home">
+      <div class="card">
+        <div class="card__title">Tableau de bord du jour</div>
+        <div class="hint">Objectifs calculés via Paramètres · Ajoute tes repas · Tout se met à jour.</div>
 
-  <!-- Favicon -->
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
+        <div class="divider"></div>
 
-  <!-- SEO -->
-  <meta name="description" content="B.E.A.M. Synergy - Accueil : Expert BIM, Revit, Add-ins, Écoconception.">
-  <meta name="keywords" content="BIM, Revit, Add-ins, Alban BICAJ, B.E.A.M. Synergy, Écoconception, Efficacité Chantier">
+        <div class="homeTopRow">
+          <div class="homeDate">
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="homeDate" />
+            </div>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link 
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600;700&family=Montserrat:wght@400;700&display=swap" 
-    rel="stylesheet"
-  >
-</head>
-
-<body style="background: #fff;">  <!-- Fond blanc -->
-
-  <!-- Bouton menu mobile -->
-  <button id="mobile-menu-button" aria-label="Ouvrir le menu mobile">
-    <i class="fas fa-bars" aria-hidden="true"></i>
-  </button>
-
-  <!-- =========================
-       NAVBAR
-  ========================== -->
-  <nav id="navbar" role="navigation" aria-label="Menu principal">
-    <div class="container nav-container" style="display:flex; justify-content:center; align-items:center; gap:50px;">
-      
-      <!-- ========== UL GAUCHE ========== -->
-      <ul id="nav-left" style="list-style:none; display:flex; gap:25px;">
-        <li><a href="#welcome" class="active">Accueil</a></li>
-        <li><a href="#intro">À Propos</a></li>
-      </ul>
-
-      <!-- ========== LOGO CENTRÉ ========== -->
-      <div class="logo-container" style="display:flex; justify-content:center; align-items:center;">
-        <svg 
-          width="280"
-          height="auto"
-          viewBox="0 0 800 300"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-label="Logo EN3RA"
-          style="display:block;"
-        >
-          <!-- Styles internes du logo -->
-          <style>
-            .letter {
-              fill: #E76F51;  /* Orange brûlé */
-              font-family: "Arial", sans-serif;
-              font-weight: 700;
-              font-size: 80px;
-            }
-            .circle {
-              fill: none;
-              stroke: #E76F51; 
-              stroke-width: 4;
-            }
-            .base-line {
-              stroke: #E76F51;
-              stroke-width: 4;
-              stroke-linecap: round;
-            }
-            .three-stylized {
-              fill: #E76F51;
-            }
-          </style>
-
-          <g transform="translate(130, 50)">
-            <!-- E -->
-            <text x="0"    y="80" class="letter">E</text>
-            <!-- N -->
-            <text x="120"  y="80" class="letter">N</text>
-
-            <!-- Cercle + 3 stylisé -->
-            <g transform="translate(240,0)">
-              <circle
-                class="circle"
-                cx="35"
-                cy="45"
-                r="35"
-              />
-              <line
-                class="base-line"
-                x1="0"   y1="80"
-                x2="70"  y2="80"
-              />
-              <!-- 3 centré dans le cercle 70×70 -->
-              <path
-                class="three-stylized"
-                transform="translate(15,20)"
-                d="
-                  M 0,0
-                  H 40
-                  A 20,20 0 0 1  40,20
-                  H 20
-                  A 10,10 0 0 1  20,30
-                  H 40
-                  A 20,20 0 0 1  40,50
-                  H 0
-                  V 35
-                  H 10
-                  Q 15,35 15,30
-                  Q 15,25 10,25
-                  H 0
-                  V 20
-                  H 10
-                  Q 15,20 15,15
-                  Q 15,10 10,10
-                  Q 0,10 0,0
-                  Z
-                "
-              />
-            </g>
-
-            <!-- R -->
-            <text x="360" y="80" class="letter">R</text>
-            <!-- A -->
-            <text x="480" y="80" class="letter">A</text>
-          </g>
-
-          <!-- Slogan -->
-          <text
-            x="400"
-            y="260"
-            text-anchor="middle"
-            fill="#E76F51"
-            font-family="Arial, sans-serif"
-            font-size="28"
-          >
-            Bureau BIM & modélisation 3D
-          </text>
-        </svg>
-      </div>
-
-      <!-- ========== UL DROITE ========== -->
-      <ul id="nav-right" style="list-style:none; display:flex; gap:25px;">
-        <li><a href="#services">Services</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </div>
-  </nav>
-
-  <!-- Séparateur fixe sous la navbar -->
-  <div class="separator"></div>
-
-  <main class="main-content">
-    <!-- Bouton "Retour en haut" -->
-    <button id="back-to-top" aria-label="Revenir en haut" class="modern-fab">
-      <i class="fas fa-chevron-up" aria-hidden="true"></i>
-    </button>
-
-    <!-- ===========================
-         Section Accueil
-    ============================ -->
-    <section id="welcome" class="reveal" tabindex="-1" aria-labelledby="welcome-title">
-      <div class="banner">
-        <video 
-          id="background-video"
-          preload="auto"
-          autoplay
-          muted
-          loop
-          playsinline
-          poster="fallback.jpg"
-          aria-label="Vidéo d'illustration d'accueil"
-        >
-          <source src="video_accueil.mp4" type="video/mp4">
-          Votre navigateur ne supporte pas la vidéo en arrière-plan.
-        </video>
-        <div class="gradient-overlay"></div>
-        <div class="banner-content">
-          <h1 id="welcome-title">Ensemble, Dynamisons Votre BIM</h1>
-          <p class="banner-subtitle">
-            Accélérez vos projets avec une approche verte et rentable.
-            Je mets à votre service mon expertise BIM pour un résultat
-            précis, fluide et totalement personnalisé.
-          </p>
-          <div class="banner-buttons">
-            <a href="#services" class="button-primary">Mes Services</a>
-            <a href="#contact" class="button-secondary">Me Contacter</a>
-          </div>
-        </div>
-      </div>
-      <!-- Vague décorative -->
-      <div class="wave wave1"></div>
-    </section>
-
-    <!-- ===========================
-         Section À Propos (2x2)
-    ============================ -->
-    <section id="intro" class="reveal">
-      <div class="container">
-        <h2>À Propos</h2>
-        <p class="section-intro">
-          Chez EN3RA INGENIERIE, je ne me contente pas de “faire du BIM” : 
-          je crée une expérience sur-mesure, rentable et tournée vers un futur plus responsable. 
-          En tant qu’expert unique, je m’implique à 100% dans la réussite de votre projet, 
-          avec l’agilité et la réactivité qu’aucune grande structure ne peut offrir.
-        </p>
-
-        <!-- On fait un grid 2 colonnes x 2 lignes (4 items) -->
-        <div class="intro-grid">
-          <!-- Flip Card 1 -->
-          <div class="intro-card flip-card">
-            <div class="flip-card-inner">
-              <div class="flip-card-front">
-                <i class="fas fa-user"></i>
-                <h3>Qui suis-je ?</h3>
-              </div>
-              <div class="flip-card-back">
-                <p>
-                  Je suis Alban BICAJ, à la fois fondateur et unique intervenant 
-                  de EN3RA INGENIERIE. Avec plusieurs années d'expérience 
-                  dans le BIM, je vous offre une disponibilité et une proximité uniques.
-                </p>
-              </div>
+            <div class="toggleBox">
+              <div class="toggleLabel">Jour entraînement</div>
+              <label class="switch">
+                <input type="checkbox" id="dayTrainingToggle" />
+                <span class="slider"></span>
+              </label>
+              <div class="toggleSub" id="dayTypeHint">Repos</div>
             </div>
           </div>
 
-          <!-- Flip Card 2 -->
-          <div class="intro-card flip-card">
-            <div class="flip-card-inner">
-              <div class="flip-card-front">
-                <i class="fas fa-eye"></i>
-                <h3>Ma Vision</h3>
-              </div>
-              <div class="flip-card-back">
-                <p>
-                  J’ambitionne de révolutionner le BIM en mêlant technologies avancées 
-                  et démarche écologique. Chaque projet est conçu pour allier innovation 
-                  et responsabilité, sans compromis.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Flip Card 3 -->
-          <div class="intro-card flip-card">
-            <div class="flip-card-inner">
-              <div class="flip-card-front">
-                <i class="fas fa-leaf"></i>
-                <h3>Mon Engagement</h3>
-              </div>
-              <div class="flip-card-back">
-                <p>
-                  Réduire l’impact environnemental passe par des plans et des modèles 
-                  <strong>ultra-précis</strong>, afin d’éviter les erreurs coûteuses 
-                  et le gaspillage de matériaux sur chantier.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Flip Card 4 -->
-          <div class="intro-card flip-card">
-            <div class="flip-card-inner">
-              <div class="flip-card-front">
-                <i class="fas fa-history"></i>
-                <h3>Mon Parcours</h3>
-              </div>
-              <div class="flip-card-back">
-                <p>
-                  Depuis 2021, j’explore en continu l’univers Revit, Dynamo et l’API C# 
-                  pour repousser les limites de la maquette numérique. Au fil des projets, 
-                  ma motivation reste la même : vous faire réussir.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div> <!-- end .intro-grid -->
-
-      </div>
-      <!-- Vague décorative -->
-      <div class="wave wave2"></div>
-    </section>
-
-    <!-- ===========================
-         Section Services
-    ============================ -->
-    <section id="services" class="reveal">
-      <div class="container">
-        <h2>Services</h2>
-        <p class="section-intro">
-          Mon objectif ? Vous accompagner à chaque étape, de la conception à la finalisation, 
-          en offrant des solutions BIM hautement personnalisées et écologiquement responsables. 
-          En travaillant avec moi, vous profitez d’un interlocuteur unique, toujours prêt à 
-          adapter mes méthodes à vos contraintes et vos ambitions.
-        </p>
-        <div class="services-grid">
-          <!-- Service 1 : Modélisation BIM -->
-          <div class="service-card tilt-card">
-            <div class="service-card-inner">
-              <i class="fas fa-cube"></i>
-              <h3>Modélisation BIM</h3>
-              <ul>
-                <li>2D → 3D, Nuage de points → Maquette</li>
-                <li>Du LOD 100 au LOD 500, selon vos besoins</li>
-                <li>Gestion des phases (démolition, construction)</li>
-                <li>DOE numérique & documents techniques centralisés</li>
-                <li>Gains de précision pour réduire retards et coûts</li>
-              </ul>
-            </div>
-          </div>
-          <!-- Service 2 : Gestion de Projet -->
-          <div class="service-card tilt-card">
-            <div class="service-card-inner">
-              <i class="fas fa-project-diagram"></i>
-              <h3>Gestion de Projet</h3>
-              <ul>
-                <li>Planification complète et phasage clair</li>
-                <li>Livrables à haute valeur ajoutée</li>
-                <li>Coordination inter-métiers (CVC, archi, structure…)</li>
-                <li>Prévention des erreurs et des surcoûts</li>
-                <li>Approche flexible pour s’adapter à votre timing</li>
-              </ul>
-            </div>
-          </div>
-          <!-- Service 3 : API & Automatisations -->
-          <div class="service-card tilt-card">
-            <div class="service-card-inner">
-              <i class="fas fa-code"></i>
-              <h3>API & Automatisations</h3>
-              <ul>
-                <li>Scripts Dynamo & C# sur mesure</li>
-                <li>Add-ins Revit (menus, macros, flux de travail)</li>
-                <li>Intégration de données de performance</li>
-                <li>Automatisation des tâches répétitives</li>
-                <li>Économie de temps, réduction de l’erreur humaine</li>
-              </ul>
-            </div>
-          </div>
-          <!-- Service 4 : Conception Écoresponsable -->
-          <div class="service-card tilt-card">
-            <div class="service-card-inner">
-              <i class="fas fa-hand-holding-heart"></i>
-              <h3>Conception Écoresponsable</h3>
-              <ul>
-                <li>Plans ultra-précis = moins d’erreurs et de gaspillage</li>
-                <li>Réduction des surconsommations de matériaux</li>
-                <li>Vision globale pour limiter les retouches tardives</li>
-                <li>Optimisation chantier = gains de temps et d’argent</li>
-                <li>Amélioration de l’impact environnemental global</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="wave wave3"></div>
-    </section>
-
-    <!-- ===========================
-         (SUPPRIMÉ) Section Add-ins Revit
-    ============================ -->
-
-    <!-- ===========================
-         Section Contact
-    ============================ -->
-    <section id="contact" class="reveal">
-      <div class="container">
-        <h2>Contact</h2>
-        <p class="section-intro">
-          Vous ne recherchez pas simplement un prestataire BIM, 
-          mais un véritable <strong>partenaire</strong> investi ? 
-          Parlons ensemble de vos objectifs, de vos contraintes et de votre vision. 
-          En travaillant directement avec moi, vous bénéficiez d’une réactivité 
-          incomparable et d’un accompagnement taillé à votre mesure.
-        </p>
-        <div class="contact-grid">
-          <div class="contact-card" style="text-align: center;">
-            <i class="fas fa-envelope"></i>
-            <h3>Email</h3>
-            <p>info@EN3RA.com</p>
-          </div>
-          <div class="contact-card" style="text-align: center;">
-            <i class="fas fa-phone"></i>
-            <h3>Téléphone</h3>
-            <p>À venir</p>
-          </div>
-          <div class="contact-card" style="text-align: center;">
-            <i class="fas fa-map-marker-alt"></i>
-            <h3>Adresse</h3>
-            <p>À venir</p>
+          <div class="coach">
+            <div class="coach__title">Coach</div>
+            <ul class="coach__list" id="coachList"></ul>
           </div>
         </div>
 
-        <!-- Modale de Connexion (inutile ici ? Mais on la laisse) -->
-        <div class="modal-bg" id="login-modal" style="display:none;">
-          <div class="modal">
-            <button class="close-modal" id="close-login-modal" aria-label="Fermer la fenêtre de connexion">
-              <i class="fas fa-times"></i>
-            </button>
-            <h2>Connexion</h2>
-            <form id="login-form" class="login-form">
-              <div class="form-group">
-                <label for="login-email">Identifiant / Email :</label>
-                <input type="text" id="login-email" required />
+        <div class="divider"></div>
+
+        <div class="kpiGrid">
+          <!-- Calories -->
+          <div class="kpiCard" id="kpi_cal">
+            <div class="kpiHeader">
+              <div class="kpi__label">Calories</div>
+              <div class="badge" id="badge_cal">—</div>
+            </div>
+            <div class="kpi__value" id="val_cal">0</div>
+            <div class="kpi__sub" id="sub_cal">0 / 0 kcal</div>
+            <div class="progress"><div class="progress__bar" id="bar_cal"></div></div>
+          </div>
+
+          <!-- Protéines -->
+          <div class="kpiCard" id="kpi_p">
+            <div class="kpiHeader">
+              <div class="kpi__label">Protéines</div>
+              <div class="badge" id="badge_p">—</div>
+            </div>
+            <div class="kpi__value" id="val_p">0</div>
+            <div class="kpi__sub" id="sub_p">0 / 0 g</div>
+            <div class="progress"><div class="progress__bar" id="bar_p"></div></div>
+          </div>
+
+          <!-- Glucides -->
+          <div class="kpiCard" id="kpi_c">
+            <div class="kpiHeader">
+              <div class="kpi__label">Glucides</div>
+              <div class="badge" id="badge_c">—</div>
+            </div>
+            <div class="kpi__value" id="val_c">0</div>
+            <div class="kpi__sub" id="sub_c">0 / 0 g</div>
+            <div class="progress"><div class="progress__bar" id="bar_c"></div></div>
+          </div>
+
+          <!-- Lipides -->
+          <div class="kpiCard" id="kpi_f">
+            <div class="kpiHeader">
+              <div class="kpi__label">Lipides</div>
+              <div class="badge" id="badge_f">—</div>
+            </div>
+            <div class="kpi__value" id="val_f">0</div>
+            <div class="kpi__sub" id="sub_f">0 / 0 g</div>
+            <div class="progress"><div class="progress__bar" id="bar_f"></div></div>
+          </div>
+        </div>
+
+        <div class="chipRow">
+          <div class="chip" id="chip_cal">Restant 0 kcal</div>
+          <div class="chip" id="chip_p">Restant 0 g</div>
+          <div class="chip" id="chip_c">Restant 0 g</div>
+          <div class="chip" id="chip_f">Restant 0 g</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="card__title">Ajouter un repas (1 ligne)</div>
+        <form class="formRow" id="quickAddForm">
+          <div class="field">
+            <label>Repas</label>
+            <select id="qaMeal">
+              <option value="">—</option>
+              <option>Petit-déjeuner</option>
+              <option>Déjeuner</option>
+              <option>Dîner</option>
+              <option>Collation</option>
+            </select>
+          </div>
+
+          <div class="field grow">
+            <label>Aliment</label>
+            <input id="qaFood" list="foodsDatalist" placeholder="Ex: Poulet (blanc cuit)" />
+            <datalist id="foodsDatalist"></datalist>
+          </div>
+
+          <div class="field">
+            <label>Quantité (g)</label>
+            <input type="number" id="qaGrams" min="1" step="1" value="100" />
+            <div class="miniBtns">
+              <button type="button" class="miniBtn" id="btnPlus50">+50g</button>
+              <button type="button" class="miniBtn" id="btnPlus100">+100g</button>
+              <button type="button" class="miniBtn" id="btnPlusPortion">+1 portion</button>
+            </div>
+          </div>
+
+          <div class="field grow">
+            <label>Note (optionnel)</label>
+            <input id="qaNote" placeholder="Ex: après entraînement" />
+          </div>
+
+          <button class="btn btn--primary" type="submit">Ajouter</button>
+          <button class="btn" type="button" id="btnRefreshHome">Rafraîchir</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- GRAPHIQUES -->
+    <section class="panel" id="tab-stats">
+      <div class="card">
+        <div class="card__title">Graphiques & Suivi poids</div>
+        <div class="hint">Graph macros à partir du journal · Suivi poids (pesée hebdo ou libre).</div>
+
+        <div class="divider"></div>
+
+        <div class="grid2">
+          <div class="cardInner">
+            <div class="cardInner__title">Macros sur la durée</div>
+
+            <div class="row">
+              <div class="field">
+                <label>Fenêtre</label>
+                <select id="statsRange">
+                  <option value="7">7 jours</option>
+                  <option value="14">14 jours</option>
+                  <option value="30" selected>30 jours</option>
+                  <option value="90">90 jours</option>
+                </select>
               </div>
-              <div class="form-group">
-                <label for="login-password">Mot de passe :</label>
-                <input type="password" id="login-password" required />
+
+              <div class="field">
+                <label>Métrique</label>
+                <select id="statsMetric">
+                  <option value="kcal" selected>Calories (kcal)</option>
+                  <option value="p">Protéines (g)</option>
+                  <option value="c">Glucides (g)</option>
+                  <option value="f">Lipides (g)</option>
+                </select>
               </div>
-              <button type="submit" class="button-primary">Se connecter</button>
+
+              <div class="field">
+                <label>Lissage</label>
+                <select id="statsSmooth">
+                  <option value="0" selected>Aucun</option>
+                  <option value="3">Moyenne 3 jours</option>
+                  <option value="7">Moyenne 7 jours</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>&nbsp;</label>
+                <button class="btn btn--primary" type="button" id="btnRefreshCharts">Mettre à jour</button>
+              </div>
+            </div>
+
+            <canvas id="macroChart" width="900" height="320" class="chart"></canvas>
+            <div class="hint" id="macroChartHint"></div>
+          </div>
+
+          <div class="cardInner">
+            <div class="cardInner__title">Pesée</div>
+
+            <form class="formRow" id="weightForm">
+              <div class="field">
+                <label>Date</label>
+                <input type="date" id="wDate" />
+              </div>
+              <div class="field">
+                <label>Poids (kg)</label>
+                <input type="number" id="wKg" min="30" max="250" step="0.1" placeholder="Ex: 88.6" />
+              </div>
+              <button class="btn btn--primary" type="submit">Ajouter</button>
+              <button class="btn" type="button" id="btnClearWeights">Vider</button>
             </form>
-            <p class="form-note">
-              Mot de passe oublié ?
-              <a href="#">Réinitialiser</a>
-            </p>
+
+            <canvas id="weightChart" width="900" height="260" class="chart"></canvas>
+
+            <div class="divider"></div>
+
+            <div class="tableWrap">
+              <table class="table" id="weightsTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Poids</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PARAMETRES -->
+    <section class="panel" id="tab-settings">
+      <div class="card">
+        <div class="card__title">Paramètres — Tableau de contrôle intelligent</div>
+        <div class="hint">
+          Remplis tes entrées. On calcule BMR (Mifflin), TDEE, calories cible et macros.
+          Le bouton “Appliquer” met à jour les objectifs utilisés sur l’Accueil.
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="grid2">
+          <div class="cardInner">
+            <div class="cardInner__title">Entrées</div>
+
+            <div class="row">
+              <div class="field">
+                <label>Sexe</label>
+                <select id="pSex">
+                  <option value="M">Homme</option>
+                  <option value="F">Femme</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Âge (ans)</label>
+                <input type="number" id="pAge" min="10" max="100" step="1" />
+              </div>
+
+              <div class="field">
+                <label>Taille (cm)</label>
+                <input type="number" id="pHeight" min="120" max="230" step="1" />
+              </div>
+
+              <div class="field">
+                <label>Poids (kg)</label>
+                <input type="number" id="pWeight" min="30" max="250" step="0.1" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label>Activité</label>
+                <select id="pActivity">
+                  <option value="1.2">Sédentaire (1.2)</option>
+                  <option value="1.375">Léger (1.375)</option>
+                  <option value="1.55">Modéré (1.55)</option>
+                  <option value="1.725">Actif (1.725)</option>
+                  <option value="1.9">Très actif (1.9)</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Objectif</label>
+                <select id="pGoal">
+                  <option value="cut">Sèche</option>
+                  <option value="maintain">Maintien</option>
+                  <option value="bulk">Prise</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Rythme visé (kg/semaine)</label>
+                <input type="number" id="pRate" min="0" max="1.5" step="0.1" />
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row">
+              <div class="field">
+                <label>Protéines (g/kg)</label>
+                <input type="number" id="pProtKg" min="1.2" max="3" step="0.1" />
+              </div>
+
+              <div class="field">
+                <label>Lipides minimum (g/kg)</label>
+                <input type="number" id="pFatKg" min="0.3" max="1.2" step="0.1" />
+              </div>
+
+              <div class="field">
+                <label>Fibres min (g/j)</label>
+                <input type="number" id="pFiber" min="0" max="80" step="1" />
+              </div>
+
+              <div class="field">
+                <label>Sodium max (mg/j)</label>
+                <input type="number" id="pSodium" min="0" max="8000" step="10" />
+              </div>
+
+              <div class="field">
+                <label>Eau cible (L/j)</label>
+                <input type="number" id="pWater" min="0" max="10" step="0.1" />
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row">
+              <div class="field">
+                <label>Delta calories Jour entraînement (kcal)</label>
+                <input type="number" id="pTrainingDelta" step="10" />
+              </div>
+              <div class="field">
+                <label>Delta calories Jour repos (kcal)</label>
+                <input type="number" id="pRestDelta" step="10" />
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn--primary" id="btnApplyCalculator" type="button">
+                Appliquer → Objectifs du jour
+              </button>
+              <button class="btn" id="btnResetSettings" type="button">Réinitialiser</button>
+            </div>
+          </div>
+
+          <div class="cardInner">
+            <div class="cardInner__title">Calculs</div>
+
+            <div class="calcGrid">
+              <div class="calcRow"><span>Constante sexe</span><b id="cSexConst">0</b></div>
+              <div class="calcRow"><span>BMR (Mifflin)</span><b id="cBmr">0</b></div>
+              <div class="calcRow"><span>TDEE</span><b id="cTdee">0</b></div>
+              <div class="calcRow"><span>Déficit / surplus (kcal/j)</span><b id="cDelta">0</b></div>
+              <div class="calcRow"><span>Calories cible (kcal/j)</span><b id="cTarget">0</b></div>
+              <div class="calcRow"><span>Protéines (g/j)</span><b id="cProt">0</b></div>
+              <div class="calcRow"><span>Lipides min (g/j)</span><b id="cFat">0</b></div>
+              <div class="calcRow"><span>Glucides (g/j)</span><b id="cCarb">0</b></div>
+              <div class="calcRow"><span>Fibres min (g/j)</span><b id="cFiber">0</b></div>
+              <div class="calcRow"><span>Sodium max (mg/j)</span><b id="cSodium">0</b></div>
+              <div class="calcRow"><span>Eau cible (L/j)</span><b id="cWater">0</b></div>
+            </div>
+
+            <div class="hint" style="margin-top:10px">
+              Le toggle “Jour entraînement” sur l’Accueil applique automatiquement les deltas de calories.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BASE ALIMENTS -->
+    <section class="panel" id="tab-foods">
+      <div class="card">
+        <div class="card__title">Base aliments</div>
+        <div class="hint">Recherche instantanée · Favoris ⭐ · Portions (g) pour la saisie rapide.</div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div class="field grow">
+            <label>Rechercher</label>
+            <input id="foodSearch" placeholder="Tape: pou, riz, skyr..." />
+          </div>
+          <div class="field">
+            <label>Catégorie</label>
+            <input id="foodCatFilter" placeholder="Optionnel" />
+          </div>
+          <div class="field">
+            <label>Tri</label>
+            <select id="foodSort">
+              <option value="fav">Favoris d'abord</option>
+              <option value="az">A → Z</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <form class="formRow" id="foodForm">
+          <div class="field grow">
+            <label>Nom</label>
+            <input id="fName" placeholder="Ex: Skyr nature" />
+          </div>
+          <div class="field">
+            <label>Catégorie</label>
+            <input id="fCat" placeholder="Ex: Laitier" />
+          </div>
+          <div class="field">
+            <label>kcal/100g</label>
+            <input type="number" id="fKcal" step="0.1" />
+          </div>
+          <div class="field">
+            <label>P/100g</label>
+            <input type="number" id="fP" step="0.1" />
+          </div>
+          <div class="field">
+            <label>G/100g</label>
+            <input type="number" id="fC" step="0.1" />
+          </div>
+          <div class="field">
+            <label>L/100g</label>
+            <input type="number" id="fF" step="0.1" />
+          </div>
+          <div class="field">
+            <label>Portion (g)</label>
+            <input type="number" id="fPortion" step="1" placeholder="Ex: 120" />
+          </div>
+
+          <button class="btn btn--primary" type="submit">Ajouter</button>
+          <button class="btn" type="button" id="btnSeed">Starter</button>
+          <button class="btn" type="button" id="btnClearFoods">Vider</button>
+        </form>
+
+        <div class="divider"></div>
+
+        <div class="tableWrap">
+          <table class="table" id="foodsTable">
+            <thead>
+              <tr>
+                <th>⭐</th>
+                <th>Nom</th>
+                <th>Catégorie</th>
+                <th>kcal/100g</th>
+                <th>P</th>
+                <th>G</th>
+                <th>L</th>
+                <th>Portion</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- JOURNAL REPAS -->
+    <section class="panel" id="tab-log">
+      <div class="card">
+        <div class="card__title">Journal repas (groupé)</div>
+        <div class="hint">Affichage par Date → Repas → Items, avec total kcal par repas.</div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div class="field grow">
+            <label>Recherche</label>
+            <input id="logSearch" placeholder="Filtre: poulet, dîner, 2025-..." />
+          </div>
+          <div class="field">
+            <label>Fenêtre</label>
+            <select id="logRange">
+              <option value="0">Tout</option>
+              <option value="7">7 jours</option>
+              <option value="14">14 jours</option>
+              <option value="30" selected>30 jours</option>
+              <option value="90">90 jours</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="logGrouped"></div>
+
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" type="button" id="btnClearMeals">Vider journal</button>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- =========================
-       FOOTER
-  ========================== -->
-  <footer role="contentinfo">
-    <div class="container">
-      <p>&copy; 2024 EN3RA INGENIERIE - SARL | Tous droits réservés</p>
-    </div>
+  <footer class="footer">
+    <span>Version web · LocalStorage · Offline</span>
   </footer>
 
-  <!-- Scripts -->
   <script src="app.js"></script>
-  <script src="menu.js"></script>
-  <!-- Script pour gérer le flip au clic (mobile / in-app browsers) -->
-  <script>
-    // Sélecteur sur tous les éléments .flip-card-inner
-    document.querySelectorAll('.flip-card-inner').forEach((inner) => {
-      // Au clic, on toggle la classe "flipped"
-      inner.addEventListener('click', () => {
-        inner.classList.toggle('flipped');
-      });
-    });
-  </script>
 </body>
 </html>
