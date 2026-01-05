@@ -2,656 +2,471 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
-  <title>Nutrition — Track</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0B1220" />
+  <title>Nutrition-Track</title>
 
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#0b0f19" />
-
-  <!-- iOS "app-like" -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Nutrition">
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <!-- PWA / iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
-
 <body>
-  <!-- SPLASH (1s) -->
-  <div id="splash" class="splash" aria-hidden="true">
-    <div class="splash__inner">
-      <div class="splash__logo" aria-hidden="true">
-        <span class="splashN">N</span>
-        <span class="splashCube" aria-hidden="true"></span>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="brand-text">
+          <div class="brand-title">Nutrition-Track</div>
+          <div class="brand-sub">Plan calories & macros en 30 secondes</div>
+        </div>
       </div>
-      <div class="splash__title">Nutrition · Track</div>
-      <div class="splash__sub">Chargement…</div>
+
+      <div class="controls">
+        <div class="mode-toggle" role="group" aria-label="Mode">
+          <button class="toggle" id="modeSimple" type="button">Simple</button>
+          <button class="toggle" id="modeAdvanced" type="button">Avancé</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="form" aria-label="Formulaire">
+        <div class="stepper" id="stepper" aria-label="Étapes">
+          <button class="step active" data-step="0" type="button">
+            <span class="step-dot"></span><span class="step-label">Profil</span>
+          </button>
+          <div class="step-line"></div>
+          <button class="step" data-step="1" type="button">
+            <span class="step-dot"></span><span class="step-label">Activité</span>
+          </button>
+          <div class="step-line"></div>
+          <button class="step" data-step="2" type="button">
+            <span class="step-dot"></span><span class="step-label">Objectif</span>
+          </button>
+          <div class="step-line"></div>
+          <button class="step" data-step="3" type="button">
+            <span class="step-dot"></span><span class="step-label">Ajuster</span>
+          </button>
+        </div>
+        <div class="step-meta" id="stepMeta">Étape 1/4 — 25% • Encore 3 étapes → ton plan est prêt.</div>
+
+        <!-- STEP 0: PROFIL -->
+        <div class="card step-panel" data-panel="0" id="panelProfile">
+          <div class="card-title">
+            <h2>Profil</h2>
+            <p class="muted">6 infos → ton plan du jour. Rien de plus.</p>
+          </div>
+
+          <div class="grid2">
+            <div class="field">
+              <label class="label">Sexe <span class="info" data-tip="Le sexe influence le métabolisme (formule BMR).">i</span></label>
+              <div class="segmented" role="group" aria-label="Sexe" id="sexControl">
+                <button type="button" class="seg" data-value="male">Homme</button>
+                <button type="button" class="seg" data-value="female">Femme</button>
+              </div>
+              <div class="field-error" data-error-for="sex"></div>
+            </div>
+
+            <div class="field">
+              <label class="label">Âge <span class="info" data-tip="10–90 ans. Plus tu es jeune, plus la dépense de base est souvent élevée (à poids égal).">i</span></label>
+              <div class="number">
+                <input inputmode="numeric" id="age" type="number" min="10" max="90" placeholder="22" />
+                <span class="unit">ans</span>
+              </div>
+              <div class="field-error" data-error-for="age"></div>
+            </div>
+
+            <div class="field">
+              <label class="label">Taille <span class="info" data-tip="120–220 cm. La taille impacte le BMR via la masse maigre estimée.">i</span></label>
+              <div class="number">
+                <input inputmode="numeric" id="height" type="number" min="120" max="220" placeholder="178" />
+                <span class="unit">cm</span>
+              </div>
+              <div class="field-error" data-error-for="height"></div>
+            </div>
+
+            <div class="field">
+              <label class="label">Poids <span class="info" data-tip="35–250 kg. Sert au BMR et aux macros (g/kg).">i</span></label>
+              <div class="number">
+                <input inputmode="decimal" id="weight" type="number" min="35" max="250" step="0.1" placeholder="89" />
+                <span class="unit">kg</span>
+              </div>
+              <div class="field-error" data-error-for="weight"></div>
+            </div>
+          </div>
+
+          <div class="hint">
+            <span class="hint-dot"></span>
+            <span>Astuce : vise des données réalistes. Le plan se met à jour en direct.</span>
+          </div>
+        </div>
+
+        <!-- STEP 1: ACTIVITÉ -->
+        <div class="card step-panel hidden" data-panel="1" id="panelActivity">
+          <div class="card-title">
+            <h2>Activité</h2>
+            <p class="muted">Choisis le niveau qui ressemble à ta semaine réelle.</p>
+          </div>
+
+          <div class="options5" id="activityCards">
+            <button class="option" type="button" data-factor="1.2">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🪑</div>
+                <div>
+                  <div class="option-title">Sédentaire</div>
+                  <div class="option-sub">Bureau + peu de marche</div>
+                </div>
+              </div>
+              <div class="option-meta">PAL ~ 1.20</div>
+            </button>
+
+            <button class="option" type="button" data-factor="1.35">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🚶</div>
+                <div>
+                  <div class="option-title">Léger</div>
+                  <div class="option-sub">Marche + 1–2 séances</div>
+                </div>
+              </div>
+              <div class="option-meta">PAL ~ 1.35</div>
+            </button>
+
+            <button class="option" type="button" data-factor="1.5">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🏃</div>
+                <div>
+                  <div class="option-title">Modéré</div>
+                  <div class="option-sub">3–4 séances / semaine</div>
+                </div>
+              </div>
+              <div class="option-meta">PAL ~ 1.50</div>
+            </button>
+
+            <button class="option" type="button" data-factor="1.65">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🏋️</div>
+                <div>
+                  <div class="option-title">Actif</div>
+                  <div class="option-sub">Sport + journées dynamiques</div>
+                </div>
+              </div>
+              <div class="option-meta">PAL ~ 1.65</div>
+            </button>
+
+            <button class="option" type="button" data-factor="1.8">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🔥</div>
+                <div>
+                  <div class="option-title">Très actif</div>
+                  <div class="option-sub">Métier physique + sport</div>
+                </div>
+              </div>
+              <div class="option-meta">PAL ~ 1.80</div>
+            </button>
+          </div>
+
+          <div class="field-error" data-error-for="activity"></div>
+        </div>
+
+        <!-- STEP 2: OBJECTIF -->
+        <div class="card step-panel hidden" data-panel="2" id="panelGoal">
+          <div class="card-title">
+            <h2>Objectif</h2>
+            <p class="muted">Un objectif clair → un plan clair.</p>
+          </div>
+
+          <div class="options3" id="goalCards">
+            <button class="option goal" type="button" data-goal="cut">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">✂️</div>
+                <div>
+                  <div class="option-title">Sèche</div>
+                  <div class="option-sub">Déficit contrôlé</div>
+                </div>
+              </div>
+            </button>
+
+            <button class="option goal" type="button" data-goal="maintain">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🧭</div>
+                <div>
+                  <div class="option-title">Maintien</div>
+                  <div class="option-sub">Stabilité & performance</div>
+                </div>
+              </div>
+            </button>
+
+            <button class="option goal" type="button" data-goal="bulk">
+              <div class="option-top">
+                <div class="icon" aria-hidden="true">🧱</div>
+                <div>
+                  <div class="option-title">Prise de masse</div>
+                  <div class="option-sub">Surplus intelligent</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div class="pace hidden" id="paceWrap">
+            <div class="field">
+              <label class="label">Rythme <span class="info" data-tip="Traduction en kcal/j : ~1100 kcal/j par 1.0 kg/semaine. Plus rapide = plus dur à tenir.">i</span></label>
+              <div class="slider-row">
+                <input id="pace" type="range" min="0.25" max="1.0" step="0.05" value="0.5" />
+                <div class="slider-value"><span id="paceValue">0.50</span> kg/sem</div>
+              </div>
+              <div class="muted small" id="paceHint"></div>
+            </div>
+          </div>
+
+          <div class="field-error" data-error-for="goal"></div>
+        </div>
+
+        <!-- STEP 3: AJUSTER -->
+        <div class="card step-panel hidden" data-panel="3" id="panelAdjust">
+          <div class="card-title">
+            <h2>Ajuster</h2>
+            <p class="muted">Optionnel. En mode Simple, on garde des réglages intelligents.</p>
+          </div>
+
+          <div class="collapse" id="advancedCollapse">
+            <button class="collapse-head" type="button" id="collapseBtn">
+              <span>Ajuster les macros</span>
+              <span class="chev" aria-hidden="true">▾</span>
+            </button>
+
+            <div class="collapse-body" id="collapseBody">
+              <div class="grid2">
+                <div class="field">
+                  <label class="label">Profil glucides <span class="info" data-tip="Bas = plus lipides, moins glucides. Élevé = plus glucides, lipides au minimum.">i</span></label>
+                  <div class="segmented" role="group" aria-label="Profil glucides" id="carbProfileControl">
+                    <button type="button" class="seg" data-value="low">Bas</button>
+                    <button type="button" class="seg" data-value="balanced">Équilibré</button>
+                    <button type="button" class="seg" data-value="high">Élevé</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Protéines <span class="info" data-tip="En g/kg. Sèche = plutôt haut. Prise de masse = suffisant, pas délirant.">i</span></label>
+                  <div class="number">
+                    <input inputmode="decimal" id="proteinPerKg" type="number" step="0.1" min="1.2" max="3.0" />
+                    <span class="unit">g/kg</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Lipides min <span class="info" data-tip="Plancher santé/hormones. Trop bas = mauvais plan.">i</span></label>
+                  <div class="number">
+                    <input inputmode="decimal" id="fatMinPerKg" type="number" step="0.1" min="0.4" max="1.5" />
+                    <span class="unit">g/kg</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Glucides min <span class="info" data-tip="Garde-fou perf/humeur. Si tes calories sont trop basses, l'app baisse d'abord les lipides (jusqu'au min).">i</span></label>
+                  <div class="number">
+                    <input inputmode="decimal" id="carbMinPerKg" type="number" step="0.1" min="0" max="5.0" />
+                    <span class="unit">g/kg</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Fibres <span class="info" data-tip="Repère simple : 25–35 g/j. Monte progressivement si tu es bas.">i</span></label>
+                  <div class="number">
+                    <input inputmode="numeric" id="fiber" type="number" step="1" min="10" max="60" />
+                    <span class="unit">g/j</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Eau <span class="info" data-tip="Base : ~30–40 ml/kg/j. Plus si sport/chaleur.">i</span></label>
+                  <div class="number">
+                    <input inputmode="decimal" id="water" type="number" step="0.1" min="1" max="8" />
+                    <span class="unit">L/j</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Sodium <span class="info" data-tip="Repère : 2–3 g/j. Ajuste selon transpiration/activité.">i</span></label>
+                  <div class="number">
+                    <input inputmode="numeric" id="sodium" type="number" step="50" min="500" max="6000" />
+                    <span class="unit">mg/j</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="muted small">
+            En mode Simple : on garde les valeurs recommandées automatiquement selon ton objectif et ton activité.
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn ghost" id="backBtn" type="button">Retour</button>
+          <button class="btn primary" id="nextBtn" type="button">Suivant</button>
+          <button class="btn subtle" id="resetBtn" type="button">Réinitialiser</button>
+        </div>
+
+        <div class="helper-row">
+          <button class="link" type="button" id="startTourBtn">Visite guidée</button>
+          <span class="muted small">— 15 secondes, puis terminé.</span>
+        </div>
+      </section>
+
+      <aside class="result" aria-label="Résultat">
+        <div class="result-card card" id="resultCard">
+          <div class="result-head">
+            <div>
+              <div class="eyebrow">Ta cible du jour</div>
+              <div class="kcal">
+                <span id="kcalValue">—</span>
+                <span class="kcal-unit">kcal/j</span>
+              </div>
+            </div>
+            <div class="coherence" aria-label="Score de cohérence">
+              <button class="coh-btn" id="scoreBtn" type="button" title="Voir le détail du score">
+                <div class="coh-ring" id="cohRing">
+                  <span id="cohValue">—</span>
+                </div>
+                <div class="coh-label">Cohérence</div>
+              </button>
+
+              <div class="score-popover" id="scorePopover" role="dialog" aria-label="Détails cohérence">
+                <div class="score-pop-title" id="scoreHint">—</div>
+                <div class="score-list" id="scoreList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chips" id="chips">
+            <span class="chip neutral" id="chipTdee">TDEE —</span>
+            <span class="chip delta" id="chipDelta">Δ —</span>
+          </div>
+
+          <div class="macros" id="macros">
+            <div class="macro">
+              <div class="macro-top">
+                <span>Protéines</span><span class="macro-metrics"><span class="macro-val" id="pVal">— g</span><span class="macro-pct" id="pPct">—%</span></span>
+              </div>
+              <div class="bar" data-t0="25" data-t1="35"><div class="band"></div><div class="fill" id="pBar"></div></div>
+            </div>
+
+            <div class="macro">
+              <div class="macro-top">
+                <span>Lipides</span><span class="macro-metrics"><span class="macro-val" id="fVal">— g</span><span class="macro-pct" id="fPct">—%</span></span>
+              </div>
+              <div class="bar" data-t0="25" data-t1="35"><div class="band"></div><div class="fill" id="fBar"></div></div>
+            </div>
+
+            <div class="macro">
+              <div class="macro-top">
+                <span>Glucides</span><span class="macro-metrics"><span class="macro-val" id="cVal">— g</span><span class="macro-pct" id="cPct">—%</span></span>
+              </div>
+              <div class="bar" data-t0="30" data-t1="50"><div class="band"></div><div class="fill" id="cBar"></div></div>
+            </div>
+          </div>
+
+          <div class="todo">
+            <div class="todo-head">
+              <div>
+                <div class="todo-title">À faire aujourd’hui</div>
+                <div class="todo-sub muted">Copie → exécute. Simple.</div>
+              </div>
+              <div class="todo-actions">
+                <button class="btn small primary" type="button" id="copyPlanBtn">Copier</button>
+                <button class="btn small" type="button" id="sharePlanBtn">Image</button>
+              </div>
+            </div>
+
+            <div class="todo-list">
+              <div class="todo-item"><span class="todo-check">✓</span><span class="todo-label">Calories</span><span class="todo-val" id="todoKcal">—</span></div>
+              <div class="todo-item"><span class="todo-check">✓</span><span class="todo-label">Protéines <span class="pill">priorité</span></span><span class="todo-val" id="todoP">—</span></div>
+              <div class="todo-item"><span class="todo-check">✓</span><span class="todo-label">Eau</span><span class="todo-val" id="todoWater">—</span></div>
+              <div class="todo-item"><span class="todo-check">✓</span><span class="todo-label">Fibres</span><span class="todo-val" id="todoFiber">—</span></div>
+            </div>
+
+            <div class="todo-foot">
+              <button class="btn ghost small" type="button" id="setDailyBtn">Définir comme plan du jour</button>
+            </div>
+          </div>
+
+          <div class="mini" id="miniTargets">
+            <div class="mini-item"><span class="mini-ico" aria-hidden="true">💧</span><span>Eau</span><span class="mini-val" id="waterVal">—</span></div>
+            <div class="mini-item"><span class="mini-ico" aria-hidden="true">🌿</span><span>Fibres</span><span class="mini-val" id="fiberVal">—</span></div>
+            <div class="mini-item"><span class="mini-ico" aria-hidden="true">🧂</span><span>Sodium</span><span class="mini-val" id="sodiumVal">—</span></div>
+          </div>
+
+          <div class="alerts" id="alerts"></div>
+
+          <div class="legal alert">
+            <div class="alert-ico" aria-hidden="true">ℹ️</div>
+            <div>
+              <div class="alert-title">Info</div>
+              <div class="alert-text">
+                Estimation BMR/TDEE. Ajuste selon ton poids, ton énergie et ta faim.
+                <button class="link" type="button" id="legalMore">En savoir plus</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- mobile bottom-sheet handle -->
+          <button class="sheet-toggle" id="sheetToggle" type="button" aria-label="Afficher les détails">Détails</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-left">
+        <button class="btn small" id="exportBtn" type="button">Exporter JSON</button>
+        <button class="btn small" id="importBtn" type="button">Importer JSON</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
+      <div class="footer-right muted small">© Nutrition-Track — usage personnel</div>
+    </footer>
+  </div>
+
+  <!-- Onboarding -->
+  <div class="tour hidden" id="tour">
+    <div class="tour-overlay" id="tourOverlay"></div>
+    <div class="tour-bubble" id="tourBubble" role="dialog" aria-modal="true">
+      <div class="tour-title" id="tourTitle">Bienvenue</div>
+      <div class="tour-text" id="tourText"></div>
+      <div class="tour-actions">
+        <button class="btn small ghost" id="tourBack" type="button">Retour</button>
+        <div class="tour-dots" id="tourDots"></div>
+        <button class="btn small primary" id="tourNext" type="button">Suivant</button>
+        <button class="btn small subtle" id="tourSkip" type="button">Fermer</button>
+      </div>
+    </div>
+    <div class="tour-spot" id="tourSpot" aria-hidden="true"></div>
+  </div>
+
+  <script src="app.js"></script>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <div class="toast-inner" id="toastText">—</div>
+  </div>
+
+  <div class="modal" id="legalModal" aria-hidden="true">
+    <div class="modal-overlay" id="legalOverlay"></div>
+    <div class="modal-card" role="dialog" aria-label="Informations">
+      <div class="modal-head">
+        <div class="modal-title">Information</div>
+        <button class="icon-btn" type="button" id="legalClose" aria-label="Fermer">✕</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Estimation.</strong> Les calculs utilisent des formules standards (BMR/TDEE). C’est une base de départ.</p>
+        <p><strong>Ajuste.</strong> Suis ton poids (moyenne 7 jours), ton énergie, ta faim, tes perfs et ajuste la cible si besoin.</p>
+        <p><strong>Consulte.</strong> En cas de pathologie, grossesse, traitement, antécédent de TCA ou doute : demande l’avis d’un professionnel de santé.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn primary" type="button" id="legalOk">OK</button>
+      </div>
     </div>
   </div>
 
-  <header class="topbar">
-    <div class="brandRow">
-      <div class="logoN" aria-hidden="true">N</div>
-      <div class="brand">
-        <div class="brand__title">Nutrition — Track</div>
-        <div class="brand__sub">Suivi & pilotage · Offline</div>
-      </div>
-    </div>
-
-    <!-- Tabs desktop -->
-    <nav class="tabs tabs--top" aria-label="Navigation principale">
-      <button class="tab is-active" type="button" data-tab="home">Accueil</button>
-      <button class="tab" type="button" data-tab="stats">Graphiques</button>
-      <button class="tab" type="button" data-tab="settings">Paramètres</button>
-      <button class="tab" type="button" data-tab="foods">Base aliments</button>
-      <button class="tab" type="button" data-tab="log">Journal repas</button>
-    </nav>
-  </header>
-
-  <main class="container">
-    <!-- ACCUEIL -->
-    <section class="panel is-active" id="tab-home">
-      <div class="card">
-        <div class="card__title">Tableau de bord du jour</div>
-        <div class="hint">Objectifs calculés via Paramètres · Ajoute tes repas · Tout se met à jour.</div>
-
-        <div class="divider"></div>
-
-        <!-- Date bar (iPhone clean) -->
-        <div class="dateBar">
-          <div class="dateRow">
-            <button class="iconBtn" type="button" id="btnPrevDay" aria-label="Jour précédent">←</button>
-
-            <button class="dateBtn" type="button" id="btnOpenDate" aria-label="Choisir une date">
-              <span id="dateLabel">—</span>
-            </button>
-
-            <button class="iconBtn" type="button" id="btnNextDay" aria-label="Jour suivant">→</button>
-
-            <input type="date" id="homeDate" class="dateHidden" />
-          </div>
-
-          <div class="toggleRow">
-            <div class="toggleBox">
-              <div class="toggleLabel">Jour entraînement</div>
-              <label class="switch">
-                <input type="checkbox" id="dayTrainingToggle" />
-                <span class="slider"></span>
-              </label>
-              <div class="toggleSub" id="dayTypeHint">Repos</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="homeTopRow">
-          <div class="coach">
-            <div class="coach__title">Coach</div>
-            <ul class="coach__list" id="coachList"></ul>
-          </div>
-
-          <div class="cardInner">
-            <div class="cardInner__title">Résumé</div>
-            <div class="hint">
-              Profil actif + sauvegardes : tout est dans <b>Paramètres</b> (en bas).<br>
-              Ici = suivi rapide du jour.
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="kpiGrid">
-          <div class="kpiCard" id="kpi_cal">
-            <div class="kpiHeader">
-              <div class="kpi__label">Calories</div>
-              <div class="badge" id="badge_cal">—</div>
-            </div>
-            <div class="kpi__value" id="val_cal">0</div>
-            <div class="kpi__sub" id="sub_cal">0 / 0 kcal</div>
-            <div class="progress"><div class="progress__bar" id="bar_cal"></div></div>
-          </div>
-
-          <div class="kpiCard" id="kpi_p">
-            <div class="kpiHeader">
-              <div class="kpi__label">Protéines</div>
-              <div class="badge" id="badge_p">—</div>
-            </div>
-            <div class="kpi__value" id="val_p">0</div>
-            <div class="kpi__sub" id="sub_p">0 / 0 g</div>
-            <div class="progress"><div class="progress__bar" id="bar_p"></div></div>
-          </div>
-
-          <div class="kpiCard" id="kpi_c">
-            <div class="kpiHeader">
-              <div class="kpi__label">Glucides</div>
-              <div class="badge" id="badge_c">—</div>
-            </div>
-            <div class="kpi__value" id="val_c">0</div>
-            <div class="kpi__sub" id="sub_c">0 / 0 g</div>
-            <div class="progress"><div class="progress__bar" id="bar_c"></div></div>
-          </div>
-
-          <div class="kpiCard" id="kpi_f">
-            <div class="kpiHeader">
-              <div class="kpi__label">Lipides</div>
-              <div class="badge" id="badge_f">—</div>
-            </div>
-            <div class="kpi__value" id="val_f">0</div>
-            <div class="kpi__sub" id="sub_f">0 / 0 g</div>
-            <div class="progress"><div class="progress__bar" id="bar_f"></div></div>
-          </div>
-        </div>
-
-        <div class="chipRow">
-          <div class="chip" id="chip_cal">Restant 0 kcal</div>
-          <div class="chip" id="chip_p">Restant 0 g</div>
-          <div class="chip" id="chip_c">Restant 0 g</div>
-          <div class="chip" id="chip_f">Restant 0 g</div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="card__title">Ajouter un repas (1 ligne)</div>
-        <form class="formRow" id="quickAddForm" autocomplete="off">
-          <div class="field">
-            <label>Repas</label>
-            <select id="qaMeal">
-              <option value="">—</option>
-              <option>Petit-déjeuner</option>
-              <option>Déjeuner</option>
-              <option>Dîner</option>
-              <option>Collation</option>
-            </select>
-          </div>
-
-          <div class="field grow">
-            <label>Aliment</label>
-            <div class="autoWrap">
-              <input id="qaFood" list="foodsDatalist" placeholder="Ex: Poulet (blanc cuit)" inputmode="search" />
-              <div class="autoList" id="qaFoodAuto"></div>
-            </div>
-            <datalist id="foodsDatalist"></datalist>
-          </div>
-
-          <div class="field">
-            <label>Quantité (g)</label>
-            <input type="text" id="qaGrams" value="100" inputmode="decimal" placeholder="Ex: 100" />
-            <div class="miniBtns">
-              <button type="button" class="miniBtn" id="btnPlus50">+50g</button>
-              <button type="button" class="miniBtn" id="btnPlus100">+100g</button>
-              <button type="button" class="miniBtn" id="btnPlusPortion">+1 portion</button>
-            </div>
-          </div>
-
-          <div class="field grow">
-            <label>Note (optionnel)</label>
-            <input id="qaNote" placeholder="Ex: après entraînement" />
-          </div>
-
-          <button class="btn btn--primary" type="submit">Ajouter</button>
-          <button class="btn" type="button" id="btnRefreshHome">Rafraîchir</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- GRAPHIQUES -->
-    <section class="panel" id="tab-stats">
-      <div class="card">
-        <div class="card__title">Graphiques & Suivi poids</div>
-        <div class="hint">Graph macros à partir du journal · Suivi poids (pesée hebdo ou libre).</div>
-
-        <div class="divider"></div>
-
-        <div class="grid2">
-          <div class="cardInner">
-            <div class="cardInner__title">Macros sur la durée</div>
-
-            <div class="row">
-              <div class="field">
-                <label>Fenêtre</label>
-                <select id="statsRange">
-                  <option value="7">7 jours</option>
-                  <option value="14">14 jours</option>
-                  <option value="30" selected>30 jours</option>
-                  <option value="90">90 jours</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Métrique</label>
-                <select id="statsMetric">
-                  <option value="kcal" selected>Calories (kcal)</option>
-                  <option value="p">Protéines (g)</option>
-                  <option value="c">Glucides (g)</option>
-                  <option value="f">Lipides (g)</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Lissage</label>
-                <select id="statsSmooth">
-                  <option value="0" selected>Aucun</option>
-                  <option value="3">Moyenne 3 jours</option>
-                  <option value="7">Moyenne 7 jours</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>&nbsp;</label>
-                <button class="btn btn--primary" type="button" id="btnRefreshCharts">Mettre à jour</button>
-              </div>
-            </div>
-
-            <div class="chartWrap">
-              <canvas id="macroChart" class="chart" aria-label="Graphique macros"></canvas>
-            </div>
-            <div class="hint" id="macroChartHint"></div>
-          </div>
-
-          <div class="cardInner">
-            <div class="cardInner__title">Pesée</div>
-
-            <form class="formRow" id="weightForm" autocomplete="off">
-              <div class="field">
-                <label>Date</label>
-                <input type="date" id="wDate" />
-              </div>
-              <div class="field">
-                <label>Poids (kg)</label>
-                <input type="text" id="wKg" inputmode="decimal" placeholder="Ex: 88,60" />
-              </div>
-              <button class="btn btn--primary" type="submit">Ajouter</button>
-              <button class="btn" type="button" id="btnClearWeights">Vider</button>
-            </form>
-
-            <div class="chartWrap">
-              <canvas id="weightChart" class="chart" aria-label="Graphique poids"></canvas>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="tableWrap">
-              <table class="table" id="weightsTable">
-                <thead>
-                  <tr><th>Date</th><th>Poids</th><th></th></tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- PARAMETRES -->
-    <section class="panel" id="tab-settings">
-      <div class="card">
-        <div class="card__title">Paramètres — Tableau de contrôle intelligent</div>
-        <div class="hint">
-          Remplis tes entrées. On calcule BMR (Mifflin), TDEE, calories cible et macros.
-          Le bouton “Appliquer” met à jour les objectifs utilisés sur l’Accueil.
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="grid2">
-          <div class="cardInner">
-            <div class="cardInner__title">Entrées</div>
-
-            <div class="row">
-              <div class="field">
-                <label>Sexe</label>
-                <select id="pSex">
-                  <option value="M">Homme</option>
-                  <option value="F">Femme</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Âge (ans)</label>
-                <input type="text" id="pAge" inputmode="numeric" />
-              </div>
-
-              <div class="field">
-                <label>Taille (cm)</label>
-                <input type="text" id="pHeight" inputmode="numeric" />
-              </div>
-
-              <div class="field">
-                <label>Poids (kg)</label>
-                <input type="text" id="pWeight" inputmode="decimal" />
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="field">
-                <label>Activité</label>
-                <select id="pActivity">
-                  <option value="1.2">Sédentaire (1.2)</option>
-                  <option value="1.375">Léger (1.375)</option>
-                  <option value="1.55">Modéré (1.55)</option>
-                  <option value="1.725">Actif (1.725)</option>
-                  <option value="1.9">Très actif (1.9)</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Objectif</label>
-                <select id="pGoal">
-                  <option value="cut">Sèche</option>
-                  <option value="maintain">Maintien</option>
-                  <option value="bulk">Prise</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Rythme visé (kg/semaine)</label>
-                <input type="text" id="pRate" inputmode="decimal" />
-              </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="row">
-              <div class="field">
-                <label>Protéines (g/kg)</label>
-                <input type="text" id="pProtKg" inputmode="decimal" />
-              </div>
-
-              <div class="field">
-                <label>Lipides minimum (g/kg)</label>
-                <input type="text" id="pFatKg" inputmode="decimal" />
-              </div>
-
-              <div class="field">
-                <label>Fibres min (g/j)</label>
-                <input type="text" id="pFiber" inputmode="numeric" />
-              </div>
-
-              <div class="field">
-                <label>Sodium max (mg/j)</label>
-                <input type="text" id="pSodium" inputmode="numeric" />
-              </div>
-
-              <div class="field">
-                <label>Eau cible (L/j)</label>
-                <input type="text" id="pWater" inputmode="decimal" />
-              </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="row">
-              <div class="field">
-                <label>Delta calories Jour entraînement (kcal)</label>
-                <input type="text" id="pTrainingDelta" inputmode="numeric" />
-              </div>
-              <div class="field">
-                <label>Delta calories Jour repos (kcal)</label>
-                <input type="text" id="pRestDelta" inputmode="numeric" />
-              </div>
-            </div>
-
-            <div class="actions">
-              <button class="btn btn--primary" id="btnApplyCalculator" type="button">Appliquer → Objectifs du jour</button>
-              <button class="btn" id="btnResetSettings" type="button">Réinitialiser</button>
-            </div>
-          </div>
-
-          <div class="cardInner">
-            <div class="cardInner__title">Calculs</div>
-
-            <div class="calcGrid">
-              <div class="calcRow"><span>Constante sexe</span><b id="cSexConst">0</b></div>
-              <div class="calcRow"><span>BMR (Mifflin)</span><b id="cBmr">0</b></div>
-              <div class="calcRow"><span>TDEE</span><b id="cTdee">0</b></div>
-              <div class="calcRow"><span>Déficit / surplus (kcal/j)</span><b id="cDelta">0</b></div>
-              <div class="calcRow"><span>Calories cible (kcal/j)</span><b id="cTarget">0</b></div>
-              <div class="calcRow"><span>Protéines (g/j)</span><b id="cProt">0</b></div>
-              <div class="calcRow"><span>Lipides min (g/j)</span><b id="cFat">0</b></div>
-              <div class="calcRow"><span>Glucides (g/j)</span><b id="cCarb">0</b></div>
-              <div class="calcRow"><span>Fibres min (g/j)</span><b id="cFiber">0</b></div>
-              <div class="calcRow"><span>Sodium max (mg/j)</span><b id="cSodium">0</b></div>
-              <div class="calcRow"><span>Eau cible (L/j)</span><b id="cWater">0</b></div>
-            </div>
-
-            <div class="hint" style="margin-top:10px">
-              Le toggle “Jour entraînement” sur l’Accueil applique automatiquement les deltas de calories.
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- PROFILS + EXPORT/IMPORT (tout en bas) -->
-        <div class="cardInner">
-          <div class="cardInner__title">Profil actif</div>
-
-          <div class="row">
-            <div class="field grow">
-              <label>Compte</label>
-              <select id="activeProfileSettings">
-                <option value="alban">Alban</option>
-                <option value="ilir">Ilir</option>
-                <option value="afrim">Afrim</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>&nbsp;</label>
-              <button class="btn btn--primary" type="button" id="btnProfileSwitchSettings">Charger</button>
-            </div>
-          </div>
-
-          <div class="hint">
-            Chaque profil garde ses propres paramètres, journal, poids et jours entraînement.
-            La base aliments reste commune.
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="cardInner__title">Sauvegarde (conseillé)</div>
-          <div class="hint">
-            iPhone : l’export ouvre la feuille de partage → choisis “Enregistrer dans Fichiers”.
-            Si quelqu’un supprime les données Safari du site, tout saute (c’est iOS), donc export = indispensable.
-          </div>
-
-          <div class="actions">
-            <button class="btn" type="button" id="btnExport">Exporter JSON</button>
-            <button class="btn" type="button" id="btnImport">Importer JSON</button>
-            <input type="file" id="importFile" accept="application/json" style="display:none" />
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="actions">
-            <button class="btn" type="button" id="btnWipeActiveProfile">Supprimer données du profil actif</button>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- BASE ALIMENTS -->
-    <section class="panel" id="tab-foods">
-      <div class="card">
-        <div class="card__title">Base aliments</div>
-        <div class="hint">Recherche instantanée · Favoris ⭐ · Portions (g) pour la saisie rapide.</div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-          <div class="field grow">
-            <label>Rechercher</label>
-            <input id="foodSearch" placeholder="Tape: pou, riz, skyr..." />
-          </div>
-
-          <div class="field">
-            <label>Catégorie</label>
-            <select id="foodCatSelect">
-              <option value="">Toutes</option>
-              <option>Laitier</option>
-              <option>Légume</option>
-              <option>Fruit</option>
-              <option>Viande</option>
-              <option>Poisson</option>
-              <option>Glucide</option>
-              <option>Lipide</option>
-              <option>Boisson</option>
-              <option>Autre</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Tri</label>
-            <select id="foodSort">
-              <option value="fav">Favoris d'abord</option>
-              <option value="az">A → Z</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <form class="formRow" id="foodForm" autocomplete="off">
-          <div class="field grow">
-            <label>Nom</label>
-            <input id="fName" placeholder="Ex: Skyr nature" />
-          </div>
-
-          <div class="field">
-            <label>Catégorie</label>
-            <select id="fCat">
-              <option>Laitier</option>
-              <option>Légume</option>
-              <option>Fruit</option>
-              <option>Viande</option>
-              <option>Poisson</option>
-              <option>Glucide</option>
-              <option>Lipide</option>
-              <option>Boisson</option>
-              <option>Autre</option>
-            </select>
-          </div>
-
-          <div class="field" id="fCatOtherWrap" style="display:none">
-            <label>Catégorie (Autre)</label>
-            <input id="fCatOther" placeholder="Ex: Snack" />
-          </div>
-
-          <div class="field">
-            <label>kcal/100g</label>
-            <input type="text" id="fKcal" inputmode="decimal" />
-          </div>
-          <div class="field">
-            <label>P/100g</label>
-            <input type="text" id="fP" inputmode="decimal" />
-          </div>
-          <div class="field">
-            <label>G/100g</label>
-            <input type="text" id="fC" inputmode="decimal" />
-          </div>
-          <div class="field">
-            <label>L/100g</label>
-            <input type="text" id="fF" inputmode="decimal" />
-          </div>
-          <div class="field">
-            <label>Portion (g)</label>
-            <input type="text" id="fPortion" inputmode="numeric" placeholder="Ex: 120" />
-          </div>
-
-          <button class="btn btn--primary" type="submit">Ajouter</button>
-          <button class="btn" type="button" id="btnSeed">Starter</button>
-          <button class="btn" type="button" id="btnClearFoods">Vider</button>
-        </form>
-
-        <div class="divider"></div>
-
-        <div class="tableWrap">
-          <table class="table" id="foodsTable">
-            <thead>
-              <tr>
-                <th>⭐</th><th>Nom</th><th>Catégorie</th><th>kcal/100g</th><th>P</th><th>G</th><th>L</th><th>Portion</th><th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- JOURNAL REPAS -->
-    <section class="panel" id="tab-log">
-      <div class="card">
-        <div class="card__title">Journal repas (groupé)</div>
-        <div class="hint">Affichage par Date → Repas → Items, avec total kcal par repas.</div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-          <div class="field grow">
-            <label>Recherche</label>
-            <input id="logSearch" placeholder="Filtre: poulet, dîner, 2025-..." />
-          </div>
-          <div class="field">
-            <label>Fenêtre</label>
-            <select id="logRange">
-              <option value="0">Tout</option>
-              <option value="7">7 jours</option>
-              <option value="14">14 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="90">90 jours</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div id="logGrouped"></div>
-
-        <div class="actions" style="margin-top:12px">
-          <button class="btn" type="button" id="btnClearMeals">Vider journal</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Bottom nav mobile -->
-  <nav class="bottomNav" aria-label="Navigation basse">
-    <button class="btab is-active" type="button" data-tab="home" aria-label="Accueil">
-      <span class="ico">🏠</span><span>Accueil</span>
-    </button>
-    <button class="btab" type="button" data-tab="stats" aria-label="Graphiques">
-      <span class="ico">📊</span><span>Stats</span>
-    </button>
-    <button class="btab" type="button" data-tab="settings" aria-label="Paramètres">
-      <span class="ico">⚙️</span><span>Réglages</span>
-    </button>
-    <button class="btab" type="button" data-tab="foods" aria-label="Aliments">
-      <span class="ico">🍽️</span><span>Aliments</span>
-    </button>
-    <button class="btab" type="button" data-tab="log" aria-label="Journal">
-      <span class="ico">🧾</span><span>Journal</span>
-    </button>
-  </nav>
-
-  <footer class="footer">
-    <span>Version web · LocalStorage · Offline</span>
-  </footer>
-
-  <script src="app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(console.error);
-      });
-    }
-  </script>
 </body>
 </html>
