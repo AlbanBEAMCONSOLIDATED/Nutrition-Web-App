@@ -8,8 +8,8 @@
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// v5: defaults protéines revus + tour revient au début + UI "Plan du jour"
-const LS_KEY = "nt_state_v5";
+// v6: mobile responsive + protéines 1.5/1.6 + pace cut 0.10
+const LS_KEY = "nt_state_v6";
 const TOUR_KEY = "nt_tour_done_v1";
 
 const els = {
@@ -65,6 +65,7 @@ const els = {
   cohRing: $("#cohRing"),
 
   sheetToggle: $("#sheetToggle"),
+  sheetHandle: $("#sheetHandle"),
 
   todoKcal: $("#todoKcal"),
 
@@ -130,6 +131,48 @@ function isReducedMotion(){
   return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function isNarrowPhone(){
+  return window.matchMedia && window.matchMedia("(max-width: 480px)").matches;
+}
+
+// Mobile browsers change the visible viewport height when the URL bar shows/hides.
+// Expose a stable CSS unit: 1 * var(--vh) == 1vh of the *current* visible viewport.
+function setVh(){
+  try{
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty("--vh", `${vh}px`);
+  }catch(_){/* noop */}
+}
+
+function updateStepMeta(){
+  if(!els.stepMeta) return;
+  const totalSteps = 4;
+  const pct = Math.round(((state.step + 1) / totalSteps) * 100);
+  const remaining = (totalSteps - 1) - state.step;
+  const micro = remaining > 0 ? `Encore ${remaining} étape${remaining>1?"s":""} → ton plan est prêt.` : `Plan prêt. Tu peux ajuster si besoin.`;
+
+  // On very small screens, keep it short to avoid overflow.
+  if(isNarrowPhone()){
+    const lbl = (els.steps[state.step] && $(".step-label", els.steps[state.step])) ? $(".step-label", els.steps[state.step]).textContent.trim() : "";
+    els.stepMeta.textContent = `${state.step + 1}/${totalSteps} — ${lbl}`;
+    return;
+  }
+  els.stepMeta.textContent = `Étape ${state.step + 1}/${totalSteps} — ${pct}% • ${micro}`;
+}
+
+function updateSheetReserve(){
+  // Reserve the bottom area on mobile so the fixed sheet never covers the form.
+  if(!els.resultCard) return;
+  const isMobile = window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
+  if(!isMobile){
+    document.documentElement.style.removeProperty("--sheetH");
+    return;
+  }
+  // Measure the sheet height (collapsed or expanded) and expose it via CSS var.
+  const h = Math.ceil(els.resultCard.getBoundingClientRect().height);
+  if(h > 0) document.documentElement.style.setProperty("--sheetH", `${h}px`);
+}
+
 /* ----------------------------- State ----------------------------- */
 
 let state = {
@@ -163,10 +206,12 @@ function defaultsFor(goal, sex, weight){
   // weight may be null; we still return sane defaults
   const w = Number(weight) || 80;
 
-  // Base cohérente (durable + performante) — ajustable en Avancé
-  // - Protéines (g/kg): plus haut en sèche pour préserver la masse maigre
-  // - Lipides min (g/kg): garde-fou hormonal/satiété (on évite trop bas)
-  // - Glucides min (g/kg): garde-fou perf/humeur (surtout si tu t’entraînes)
+  // Base cohérente (simple + durable) — ajustable en Avancé
+  // Protéines (g/kg):
+  //  - base: 1.5 g/kg (ok pour la majorité)
+  //  - sèche: 1.6 g/kg (un peu plus haut pour protéger la masse maigre)
+  // Lipides min (g/kg): garde-fou hormonal/satiété
+  // Glucides min (g/kg): garde-fou perf/humeur
   let protein = 1.5;
   let fatMin = 0.7;
   let carbMin = 1.2;
@@ -254,13 +299,7 @@ function showPanel(step){
   els.backBtn.disabled = (state.step === 0);
   els.nextBtn.textContent = (state.step === 3) ? "Terminé" : "Suivant";
 
-  if(els.stepMeta){
-    const totalSteps = 4;
-    const pct = Math.round(((state.step + 1) / totalSteps) * 100);
-    const remaining = (totalSteps - 1) - state.step;
-    const micro = remaining > 0 ? `Encore ${remaining} étape${remaining>1?"s":""} → ton plan est prêt.` : `Plan prêt. Tu peux ajuster si besoin.`;
-    els.stepMeta.textContent = `Étape ${state.step + 1}/${totalSteps} — ${pct}% • ${micro}`;
-  }
+  updateStepMeta();
 
   // In Simple mode, keep Adjust step available but collapse closed
   if(state.mode === "simple"){
@@ -272,11 +311,26 @@ function showPanel(step){
     if(!state.advancedOpen) els.collapseBody.style.display = "none";
   }
 
-  // Scroll nicely (desktop)
-  if(!isReducedMotion()){
-    window.scrollTo({top: 0, behavior: "smooth"});
+  // Scrolling behavior
+  // - Desktop: go to top
+  // - Mobile: keep the form in view and center the active step tab
+  const isMobile = window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
+  const reduced = isReducedMotion();
+  if(isMobile){
+    const form = document.querySelector("section.form");
+    if(form){
+      try{ form.scrollIntoView({block: "start", behavior: reduced ? "auto" : "smooth"}); }catch(_){ /* noop */ }
+    }
+    const activeStep = els.steps && els.steps[state.step];
+    if(activeStep){
+      try{ activeStep.scrollIntoView({inline: "center", block: "nearest", behavior: reduced ? "auto" : "smooth"}); }catch(_){ /* noop */ }
+    }
   }else{
-    window.scrollTo(0,0);
+    if(!reduced){
+      window.scrollTo({top: 0, behavior: "smooth"});
+    }else{
+      window.scrollTo(0,0);
+    }
   }
 
   save();
@@ -998,6 +1052,9 @@ function closeTour(){
   }else{
     window.scrollTo(0,0);
   }
+
+  // keep mobile reserve accurate
+  updateSheetReserve();
 }
 
 function applyTourStep(){
@@ -1058,6 +1115,9 @@ function wireOptions(containerEl, cb){
 
 function init(){
   load();
+
+  // Mobile viewport helper
+  setVh();
 
   // Macro target bands (configurable via data-t0/data-t1)
   document.querySelectorAll(".bar[data-t0][data-t1]").forEach(b=>{
@@ -1141,7 +1201,7 @@ function init(){
     state.sodium = null;
 
     // pace defaults
-    if(state.goal === "cut") state.pace = clamp(Number(state.pace) || 0.5, 0.25, 1.0);
+    if(state.goal === "cut") state.pace = clamp(Number(state.pace) || 0.5, 0.10, 1.0);
     if(state.goal === "bulk") state.pace = clamp(Number(state.pace) || 0.25, 0.10, 0.50);
 
     // if maintain, pace irrelevant
@@ -1205,7 +1265,51 @@ function init(){
   els.sheetToggle.addEventListener("click", ()=>{
     els.resultCard.classList.toggle("expanded");
     els.sheetToggle.textContent = els.resultCard.classList.contains("expanded") ? "Réduire" : "Détails";
+    updateSheetReserve();
   });
+
+  // Mobile: swipe handle (up = expand, down = collapse)
+  if(els.sheetHandle){
+    let startY = null;
+    let active = false;
+
+    const isMobileSheet = () => window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
+
+    const onDown = (e) => {
+      if(!isMobileSheet()) return;
+      active = true;
+      startY = e.clientY;
+      try{ els.sheetHandle.setPointerCapture(e.pointerId); }catch(_){/* noop */}
+    };
+    const onMove = (e) => {
+      if(!active || startY === null) return;
+      // optional: tiny visual feedback
+      const dy = e.clientY - startY;
+      els.sheetHandle.style.transform = `translateY(${clamp(dy, -12, 12)}px)`;
+    };
+    const onUp = (e) => {
+      if(!active || startY === null) return;
+      active = false;
+      const dy = e.clientY - startY;
+      startY = null;
+      els.sheetHandle.style.transform = "";
+
+      // Thresholds tuned for thumbs
+      if(dy < -40){
+        els.resultCard.classList.add("expanded");
+      }else if(dy > 40){
+        els.resultCard.classList.remove("expanded");
+      }
+      els.sheetToggle.textContent = els.resultCard.classList.contains("expanded") ? "Réduire" : "Détails";
+      updateSheetReserve();
+    };
+
+    // Pointer events cover mouse + touch
+    els.sheetHandle.addEventListener("pointerdown", onDown);
+    els.sheetHandle.addEventListener("pointermove", onMove);
+    els.sheetHandle.addEventListener("pointerup", onUp);
+    els.sheetHandle.addEventListener("pointercancel", onUp);
+  }
 
   // Export / Import
   els.exportBtn.addEventListener("click", ()=>{
@@ -1328,6 +1432,22 @@ function init(){
   showPanel(state.step);
   render();
   renderDailyChip();
+
+  // Keep UI responsive to screen changes
+  updateStepMeta();
+  updateSheetReserve();
+  window.addEventListener("resize", ()=>{
+    setVh();
+    updateStepMeta();
+    updateSheetReserve();
+  });
+  window.addEventListener("orientationchange", ()=>{
+    setTimeout(()=>{
+      setVh();
+      updateStepMeta();
+      updateSheetReserve();
+    }, 250);
+  });
 
   // Auto tour once
   setTimeout(()=> openTour(false), 450);

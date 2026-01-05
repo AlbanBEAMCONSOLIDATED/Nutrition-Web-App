@@ -36,19 +36,19 @@
       <section class="form" aria-label="Formulaire">
         <div class="stepper" id="stepper" aria-label="Étapes">
           <button class="step active" data-step="0" type="button">
-            <span class="step-dot"></span><span class="step-label">Profil</span>
+            <span class="step-dot"></span><span class="step-label"><span class="full">Profil</span><span class="short">Profil</span></span>
           </button>
           <div class="step-line"></div>
           <button class="step" data-step="1" type="button">
-            <span class="step-dot"></span><span class="step-label">Activité</span>
+            <span class="step-dot"></span><span class="step-label"><span class="full">Activité</span><span class="short">Act.</span></span>
           </button>
           <div class="step-line"></div>
           <button class="step" data-step="2" type="button">
-            <span class="step-dot"></span><span class="step-label">Objectif</span>
+            <span class="step-dot"></span><span class="step-label"><span class="full">Objectif</span><span class="short">Obj.</span></span>
           </button>
           <div class="step-line"></div>
           <button class="step" data-step="3" type="button">
-            <span class="step-dot"></span><span class="step-label">Ajuster</span>
+            <span class="step-dot"></span><span class="step-label"><span class="full">Ajuster</span><span class="short">Régl.</span></span>
           </button>
         </div>
         <div class="step-meta" id="stepMeta">Étape 1/4 — 25% • Encore 3 étapes → ton plan est prêt.</div>
@@ -214,7 +214,7 @@
             <div class="field">
               <label class="label">Rythme <span class="info" data-tip="Traduction en kcal/j : ~1100 kcal/j par 1.0 kg/semaine. Plus rapide = plus dur à tenir.">i</span></label>
               <div class="slider-row">
-                <input id="pace" type="range" min="0.25" max="1.0" step="0.05" value="0.5" />
+                <input id="pace" type="range" min="0.10" max="1.00" step="0.05" value="0.50" />
                 <div class="slider-value"><span id="paceValue">0.50</span> kg/sem</div>
               </div>
               <div class="muted small" id="paceHint"></div>
@@ -318,6 +318,7 @@
 
       <aside class="result" aria-label="Résultat">
         <div class="result-card card" id="resultCard">
+          <div class="sheet-handle" id="sheetHandle" aria-hidden="true"></div>
           <div class="result-head">
             <div>
               <div class="eyebrow">Ta cible du jour</div>
