@@ -2,116 +2,253 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TB1 Flashcards – Units 1–6</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>TB1 Flashcards – Minimal</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header>
-    <h1>TB1 – Flashcards (Units 1–6)</h1>
-    <div class="nav">
-      <button id="tabVocab" class="active">Vocabulaire</button>
-      <button id="tabGrammar">Grammaire</button>
-      <button id="tabTests">Tests</button>
+    <div class="wrap">
+      <div class="brand">
+        <div>
+          <h1>TB1 Flashcards (Units 1–6)</h1>
+          <div class="meta">Vocab + Grammaire + Tests + Base de données locale (CRUD)</div>
+        </div>
+        <div class="pill" id="globalCount">—</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="vocab">Vocabulaire</button>
+        <button class="tab" data-tab="grammar">Grammaire</button>
+        <button class="tab" data-tab="texts">Textes</button>
+        <button class="tab" data-tab="tests">Tests</button>
+        <button class="tab" data-tab="db">Base de données</button>
+      </div>
     </div>
   </header>
 
-  <div class="container">
-
+  <main>
     <!-- VOCAB -->
-    <section id="panelVocab" class="panel active">
-      <div class="card-controls">
-        <select id="unitFilter" class="select"></select>
+    <section id="panel-vocab" class="panel active">
+      <div class="controls">
+        <select id="unitFilter" class="control"></select>
 
-        <select id="directionMode" class="select">
+        <select id="directionMode" class="control" title="Sens d'apprentissage">
           <option value="random" selected>Sens : Aléatoire</option>
           <option value="fr_en">Sens : FR → EN</option>
           <option value="en_fr">Sens : EN → FR</option>
         </select>
 
-        <input id="searchBox" class="input" placeholder="Recherche (EN ou FR)..." />
-        <button id="btnShuffle" class="small-btn" title="Remélanger">🔀</button>
-        <button id="btnPrev" class="small-btn" title="Précédent">◀</button>
-        <button id="btnNext" class="small-btn" title="Suivant">▶</button>
+        <input id="searchBox" class="control input" placeholder="Recherche (EN ou FR)..." />
+
+        <button id="btnShuffle" class="control btn primary">Mélanger</button>
+
+        <span class="pill"><span id="progressText">—</span></span>
       </div>
 
-      <div class="notice" id="countText"></div>
+      <div class="progress"><div id="progressBar"></div></div>
 
-      <div class="progress-wrap">
-        <div class="progress-bar-wrap"><div id="progressBar" class="progress-bar"></div></div>
-        <div id="progressText" class="progress-text">—</div>
-      </div>
+      <div class="card-area">
+        <div class="card-top">
+          <div class="unit-badge" id="unitBadge">—</div>
+          <div class="small">Raccourcis : <kbd>Space</kbd> flip • <kbd>←</kbd>/<kbd>→</kbd> nav</div>
+        </div>
 
-      <div class="unit-badge" id="unitBadge">—</div>
+        <div class="scene">
+          <div id="card3d" class="card3d" role="button" tabindex="0" aria-label="Flashcard">
+            <div class="face front">
+              <div>
+                <div class="label" id="frontLabel">Français</div>
+                <div class="word" id="frontWord">—</div>
+              </div>
 
-      <div id="scene" class="scene" aria-label="Flashcard">
-        <div id="card3d" class="card3d">
-          <div class="face front">
-            <div>
-              <div id="frontLabel" class="label">Français</div>
-              <div id="frontWord" class="word">—</div>
+              <div class="examples">
+                <div class="title">
+                  <span>Exemples (EN)</span>
+                  <button id="btnToggleTr" class="link">Traduction</button>
+                </div>
+                <div class="en" id="examplesEn">—</div>
+                <div class="fr" id="examplesFr" style="display:none;">—</div>
+              </div>
             </div>
-            <div class="examples">
-              <div class="title">Exemples (EN)</div>
-              <div id="examplesEn" class="lines">—</div>
-              <button id="btnToggleTr" class="toggle">Traduction</button>
-              <div id="examplesFr" class="fr">—</div>
-            </div>
-          </div>
 
-          <div class="face back">
-            <div>
-              <div id="backLabel" class="label">English</div>
-              <div id="backWord" class="word">—</div>
-            </div>
-            <div class="examples">
-              <div class="title">Exemples (EN)</div>
-              <div id="examplesEnBack" class="lines" style="display:none;"></div>
+            <div class="face back">
+              <div>
+                <div class="label" id="backLabel">English</div>
+                <div class="word" id="backWord">—</div>
+              </div>
+              <div class="hint">Clique (ou Espace) pour retourner</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div id="hint" class="hint">Clique sur la carte pour la retourner</div>
+        <div class="actions">
+          <button id="btnPrev" class="action">◀</button>
+          <button id="btnNo" class="action bad">Je connais pas</button>
+          <button id="btnYes" class="action ok">Je connais</button>
+          <button id="btnNext" class="action">▶</button>
+        </div>
 
-      <div id="actions" class="actions" style="display:none;">
-        <button id="btnNo" class="btn-no">Je connais pas</button>
-        <button id="btnYes" class="btn-yes">Je connais</button>
+        <div class="hint" id="hint">Clique sur la carte pour la retourner</div>
       </div>
     </section>
 
     <!-- GRAMMAR -->
-    <section id="panelGrammar" class="panel">
-      <div class="notice">Cours + cas techniques + mini-exercices (corrigés).</div>
+    <section id="panel-grammar" class="panel">
       <div id="grammarRoot"></div>
     </section>
 
-    <!-- TESTS -->
-    <section id="panelTests" class="panel">
-      <div class="tests-box">
-        <div class="tests-row">
-          <select id="testMode" class="select">
-            <option value="vocab">Test Vocab</option>
-            <option value="grammar">Test Grammaire</option>
-            <option value="mixed" selected>Test Mix</option>
-          </select>
+    
+    <!-- TEXTS -->
+    <section id="panel-texts" class="panel">
+      <div class="controls">
+        <select id="textFocus" class="control" title="Focus">
+          <option value="mixed" selected>Focus : Mix (vocab + grammaire)</option>
+          <option value="vocab">Focus : Vocabulaire</option>
+          <option value="grammar">Focus : Grammaire</option>
+        </select>
 
-          <select id="testCount" class="select">
-            <option value="10">10 questions</option>
-            <option value="20" selected>20 questions</option>
-            <option value="30">30 questions</option>
-          </select>
+        <select id="textUnit" class="control" title="Unit">
+          <option value="ALL" selected>Units : 1–6</option>
+          <option value="Unit 1">Unit 1</option>
+          <option value="Unit 2">Unit 2</option>
+          <option value="Unit 3">Unit 3</option>
+          <option value="Unit 4">Unit 4</option>
+          <option value="Unit 5">Unit 5</option>
+          <option value="Unit 6">Unit 6</option>
+        </select>
 
-          <button id="btnStartTest" class="small-btn">Démarrer</button>
-          <button id="btnRestartTest" class="small-btn">Recommencer</button>
-          <div class="notice">Score: <span id="testScore">—</span></div>
+        <select id="blankRate" class="control" title="Pourcentage de trous">
+          <option value="0.12">12% trous</option>
+          <option value="0.25">25% trous</option>
+          <option value="0.35">35% trous</option>
+          <option value="0.50" selected>50% trous (hard)</option>
+</select>
+
+        <label class="pill" style="cursor:pointer;">
+          <input id="blankUnits" type="checkbox" style="accent-color: var(--accent); margin:0 8px 0 0;">
+          Masquer unités (mm, kW, °C…)
+        </label>
+
+        <button id="btnGenText" class="control btn primary">Générer texte à trous</button>
+        <button id="btnClearText" class="control btn">Vider</button>
+
+        <label class="control btn">
+          Import .txt
+          <input id="fileTextImport" type="file" accept=".txt,text/plain" style="display:none;">
+        </label>
+
+        <button id="btnExampleText" class="control btn">Exemple</button>
+      </div>
+
+      <div class="small" style="margin-bottom:10px;">
+        Colle ici tes textes TB1 / MCSE (copier-coller). L’app ne contient pas les textes des livres.
+      </div>
+
+      <textarea id="textSource" class="control" rows="10" style="width:100%;" placeholder="Colle ton texte en anglais ici..."></textarea>
+
+      <div class="card-area" style="margin-top:12px; background:#fff;">
+        <div class="controls" style="margin-bottom:8px;">
+          <button id="btnCheckText" class="control btn primary">Corriger</button>
+          <button id="btnRevealText" class="control btn">Afficher réponses</button>
+          <span class="pill">Score : <span id="textScore">—</span></span>
         </div>
-
-        <div id="testQ"></div>
+        <div id="textExercise" class="small"></div>
       </div>
     </section>
 
-  </div>
+
+<!-- TESTS -->
+    <section id="panel-tests" class="panel">
+      <div class="controls">
+        <select id="testMode" class="control">
+          <option value="mixed" selected>Test : Mix</option>
+          <option value="vocab">Test : Vocab</option>
+          <option value="grammar">Test : Grammaire</option>
+        </select>
+
+        <select id="testCount" class="control">
+          <option value="10">10 questions</option>
+          <option value="20" selected>20 questions</option>
+          <option value="30">30 questions</option>
+        </select>
+
+        <button id="btnStartTest" class="control btn primary">Démarrer</button>
+        <button id="btnRestartTest" class="control btn">Recommencer</button>
+
+        <span class="pill">Score : <span id="testScore">—</span></span>
+      </div>
+      <div id="testRoot"></div>
+    </section>
+
+    <!-- DB -->
+    <section id="panel-db" class="panel">
+      <div class="grid">
+        <div>
+          <div class="controls">
+            <select id="dbUnitFilter" class="control"></select>
+            <input id="dbSearch" class="control input" placeholder="Filtrer (EN/FR)..." />
+            <button id="btnExport" class="control btn">Export JSON</button>
+            <label class="control btn">
+              Import JSON
+              <input id="fileImport" type="file" accept="application/json" style="display:none;">
+            </label>
+          </div>
+
+          <div id="dbCards" class="db-cards" aria-label="Liste des cartes (mobile)"></div>
+
+          <div class="table-wrap db-table">
+            <table>
+              <thead>
+                <tr><th>Unit</th><th>EN</th><th>FR</th></tr>
+              </thead>
+              <tbody id="dbTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="small" style="margin-top:10px;">
+            Clique une ligne pour éditer. Tout est sauvegardé en local (sur ton PC).
+          </div>
+        </div>
+
+        <div class="form">
+          <h3>Ajouter / Modifier</h3>
+
+          <label>Unit
+            <select id="editUnit" class="control"></select>
+          </label>
+
+          <label>EN
+            <input id="editEn" class="control" />
+          </label>
+
+          <label>FR
+            <input id="editFr" class="control" />
+          </label>
+
+          <div class="row">
+            <button id="btnAdd" class="action ok">Ajouter</button>
+            <button id="btnUpdate" class="action">Mettre à jour</button>
+            <button id="btnDelete" class="action bad">Supprimer</button>
+            <button id="btnClear" class="action">Vider</button>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">
+
+          <h3>Ajout en masse</h3>
+          <div class="small">1 ligne = EN<TAB>FR<TAB>Unit (ou EN ; FR ; Unit)</div>
+          <textarea id="bulkArea" class="control" rows="8" placeholder="to calibrate	calibrer	Unit 6"></textarea>
+          <div class="row">
+            <button id="btnBulkAdd" class="action ok">Ajouter en masse</button>
+            <button id="btnBulkExample" class="action">Exemple</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <script src="./data.js"></script>
   <script src="./app.js"></script>
