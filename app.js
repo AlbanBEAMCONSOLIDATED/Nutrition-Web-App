@@ -1,1461 +1,762 @@
-"use strict";
 
-/* =========================================================
-   Nutrition-Track — Single page "premium" settings → plan
-   Vanilla JS, no deps.
-========================================================= */
+/* TB1 Flashcards – Units 1–6
+   - Vocab cards (FR↔EN random per card, stable within deck)
+   - Examples EN visible, FR hidden toggle
+   - Grammar tab with real technical cases + exercises
+   - Tests tab (vocab / grammar / mixed)
+*/
 
-const $ = (sel, root=document) => root.querySelector(sel);
-const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const $ = (id) => document.getElementById(id);
 
-// v6: mobile responsive + protéines 1.5/1.6 + pace cut 0.10
-const LS_KEY = "nt_state_v6";
-const TOUR_KEY = "nt_tour_done_v1";
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 
-const els = {
-  modeSimple: $("#modeSimple"),
-  modeAdvanced: $("#modeAdvanced"),
-  stepper: $("#stepper"),
-  stepMeta: $("#stepMeta"),
-  panels: $$(".step-panel"),
-  steps: $$(".step", $("#stepper")),
-  backBtn: $("#backBtn"),
-  nextBtn: $("#nextBtn"),
-  resetBtn: $("#resetBtn"),
+function hash32(str){
+  // simple deterministic hash
+  let h = 2166136261;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
 
-  sexControl: $("#sexControl"),
-  age: $("#age"),
-  height: $("#height"),
-  weight: $("#weight"),
+function primaryFr(fr){
+  if(!fr) return "";
+  let s = fr.split(";")[0];
+  s = s.split(",")[0];
+  s = s.replace(/\(.*?\)/g, "").trim();
+  return s || fr.trim();
+}
 
-  activityCards: $("#activityCards"),
-  goalCards: $("#goalCards"),
+function baseVerb(en){
+  return en.replace(/^to\s+/i,"").trim();
+}
 
-  paceWrap: $("#paceWrap"),
-  pace: $("#pace"),
-  paceValue: $("#paceValue"),
-  paceHint: $("#paceHint"),
-
-  collapse: $("#advancedCollapse"),
-  collapseBtn: $("#collapseBtn"),
-  collapseBody: $("#collapseBody"),
-
-  carbProfileControl: $("#carbProfileControl"),
-  proteinPerKg: $("#proteinPerKg"),
-  fatMinPerKg: $("#fatMinPerKg"),
-  carbMinPerKg: $("#carbMinPerKg"),
-  fiber: $("#fiber"),
-  water: $("#water"),
-  sodium: $("#sodium"),
-
-  resultCard: $("#resultCard"),
-  kcalValue: $("#kcalValue"),
-  chipTdee: $("#chipTdee"),
-  chipDelta: $("#chipDelta"),
-  pVal: $("#pVal"), fVal: $("#fVal"), cVal: $("#cVal"),
-  cPct: $("#cPct"),
-  fPct: $("#fPct"),
-  pPct: $("#pPct"),
-  pBar: $("#pBar"), fBar: $("#fBar"), cBar: $("#cBar"),
-  waterVal: $("#waterVal"),
-  fiberVal: $("#fiberVal"),
-  sodiumVal: $("#sodiumVal"),
-  alerts: $("#alerts"),
-  cohValue: $("#cohValue"),
-  cohRing: $("#cohRing"),
-
-  sheetToggle: $("#sheetToggle"),
-  sheetHandle: $("#sheetHandle"),
-
-  todoKcal: $("#todoKcal"),
-
-  todoP: $("#todoP"),
-
-  todoWater: $("#todoWater"),
-
-  todoFiber: $("#todoFiber"),
-
-  copyPlanBtn: $("#copyPlanBtn"),
-
-  sharePlanBtn: $("#sharePlanBtn"),
-
-  setDailyBtn: $("#setDailyBtn"),
-
-  toast: $("#toast"),
-
-  toastText: $("#toastText"),
-
-  legalMore: $("#legalMore"),
-
-  legalModal: $("#legalModal"),
-
-  legalClose: $("#legalClose"),
-  legalOk: $("#legalOk"),
-
-  legalOverlay: $("#legalOverlay"),
-
-  scoreBtn: $("#scoreBtn"),
-
-  scorePopover: $("#scorePopover"),
-
-  scoreList: $("#scoreList"),
-
-  scoreHint: $("#scoreHint"),
-
-  dailyChip: $("#dailyChip"),
-
-  exportBtn: $("#exportBtn"),
-  importBtn: $("#importBtn"),
-  importFile: $("#importFile"),
-
-  startTourBtn: $("#startTourBtn"),
-
-  tour: $("#tour"),
-  tourOverlay: $("#tourOverlay"),
-  tourBubble: $("#tourBubble"),
-  tourTitle: $("#tourTitle"),
-  tourText: $("#tourText"),
-  tourBack: $("#tourBack"),
-  tourNext: $("#tourNext"),
-  tourSkip: $("#tourSkip"),
-  tourDots: $("#tourDots"),
-  tourSpot: $("#tourSpot"),
+const CONNECTORS = {
+  contrast: new Set(["however","nevertheless","although","though","whereas","while","yet","on the other hand"]),
+  cause: new Set(["because","since","as","therefore","thus","so","as a result","consequently","hence"]),
+  addition: new Set(["moreover","furthermore","in addition","also","besides","what is more"]),
+  example: new Set(["for example","e.g.","such as"]),
+  clarify: new Set(["that is","i.e.","in other words"])
 };
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const round = (v) => Math.round(v);
-const fmt = (v) => (Number.isFinite(v) ? String(v) : "—");
-const fmtKcal = (v) => (Number.isFinite(v) ? round(v).toString() : "—");
-
-function isReducedMotion(){
-  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function isConnector(term){
+  const t = term.toLowerCase();
+  return CONNECTORS.contrast.has(t) || CONNECTORS.cause.has(t) || CONNECTORS.addition.has(t) ||
+         CONNECTORS.example.has(t) || CONNECTORS.clarify.has(t);
 }
 
-function isNarrowPhone(){
-  return window.matchMedia && window.matchMedia("(max-width: 480px)").matches;
+function connectorType(term){
+  const t = term.toLowerCase();
+  if(CONNECTORS.contrast.has(t)) return "contrast";
+  if(CONNECTORS.cause.has(t)) return "cause";
+  if(CONNECTORS.addition.has(t)) return "addition";
+  if(CONNECTORS.example.has(t)) return "example";
+  if(CONNECTORS.clarify.has(t)) return "clarify";
+  return "other";
 }
 
-// Mobile browsers change the visible viewport height when the URL bar shows/hides.
-// Expose a stable CSS unit: 1 * var(--vh) == 1vh of the *current* visible viewport.
-function setVh(){
-  try{
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty("--vh", `${vh}px`);
-  }catch(_){/* noop */}
+function pickTwoTemplates(templates, seed){
+  if(templates.length <= 2) return templates.slice(0,2);
+  const a = templates[Math.abs(seed) % templates.length];
+  const b = templates[Math.abs(seed*2654435761) % templates.length];
+  return (a === b) ? [a, templates[(Math.abs(seed)+1) % templates.length]] : [a,b];
 }
 
-function updateStepMeta(){
-  if(!els.stepMeta) return;
-  const totalSteps = 4;
-  const pct = Math.round(((state.step + 1) / totalSteps) * 100);
-  const remaining = (totalSteps - 1) - state.step;
-  const micro = remaining > 0 ? `Encore ${remaining} étape${remaining>1?"s":""} → ton plan est prêt.` : `Plan prêt. Tu peux ajuster si besoin.`;
+function getExamples(card){
+  const seed = hash32(card.en + "|" + card.fr + "|" + card.unit);
+  const fr0 = primaryFr(card.fr);
+  const enTerm = card.en;
+  const unit = card.unit;
 
-  // On very small screens, keep it short to avoid overflow.
-  if(isNarrowPhone()){
-    const lbl = (els.steps[state.step] && $(".step-label", els.steps[state.step])) ? $(".step-label", els.steps[state.step]).textContent.trim() : "";
-    els.stepMeta.textContent = `${state.step + 1}/${totalSteps} — ${lbl}`;
-    return;
-  }
-  els.stepMeta.textContent = `Étape ${state.step + 1}/${totalSteps} — ${pct}% • ${micro}`;
-}
+  // Templates
+  const verbT = [
+    {
+      en: (v) => `During commissioning, we had to ${v} the setpoints to match the design values.`,
+      fr: (vf) => `Lors de la mise en service, nous avons dû ${vf} les consignes pour respecter les valeurs de projet.`
+    },
+    {
+      en: (v) => `The technician will ${v} the readings and update the test report.`,
+      fr: (vf) => `Le technicien va ${vf} les mesures et mettre à jour le rapport d’essais.`
+    },
+    {
+      en: (v) => `Before handover, we need to ${v} the system and document the results.`,
+      fr: (vf) => `Avant la réception, il faut ${vf} le système et documenter les résultats.`
+    }
+  ];
 
-function updateSheetReserve(){
-  // Reserve the bottom area on mobile so the fixed sheet never covers the form.
-  if(!els.resultCard) return;
-  const isMobile = window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
-  if(!isMobile){
-    document.documentElement.style.removeProperty("--sheetH");
-    return;
-  }
-  // Measure the sheet height (collapsed or expanded) and expose it via CSS var.
-  const h = Math.ceil(els.resultCard.getBoundingClientRect().height);
-  if(h > 0) document.documentElement.style.setProperty("--sheetH", `${h}px`);
-}
+  const nounT = [
+    {
+      en: (t) => `We checked ${t} on site and recorded it in the inspection report.`,
+      fr: (tf) => `Nous avons vérifié ${tf} sur site et l’avons noté dans le rapport d’inspection.`
+    },
+    {
+      en: (t) => `Correct ${t} is essential for safe operation and maintenance.`,
+      fr: (tf) => `Un(e) ${tf} correct(e) est essentiel(le) pour l’exploitation et la maintenance.`
+    },
+    {
+      en: (t) => `The project documentation includes ${t} with reference values and tolerances.`,
+      fr: (tf) => `La documentation du projet inclut ${tf} avec des valeurs de référence et des tolérances.`
+    }
+  ];
 
-/* ----------------------------- State ----------------------------- */
+  const adjT = [
+    {
+      en: (t) => `We selected a ${t} solution to reduce risk and improve reliability.`,
+      fr: (tf) => `Nous avons choisi une solution ${tf} pour réduire le risque et améliorer la fiabilité.`
+    },
+    {
+      en: (t) => `The measured value is ${t} within the required tolerance.`,
+      fr: (tf) => `La valeur mesurée est ${tf} dans la tolérance exigée.`
+    },
+    {
+      en: (t) => `Use a ${t} method to keep the results consistent across tests.`,
+      fr: (tf) => `Utilise une méthode ${tf} pour garder des résultats cohérents entre les essais.`
+    }
+  ];
 
-let state = {
-  mode: "simple", // simple | advanced
-  step: 0,
+  const advT = [
+    {
+      en: (t) => `The airflow is ${t} higher than expected during peak demand.`,
+      fr: (tf) => `Le débit d’air est ${tf} plus élevé que prévu en pointe.`
+    },
+    {
+      en: (t) => `The pressure drop is ${t} stable after balancing.`,
+      fr: (tf) => `La perte de charge est ${tf} stable après l’équilibrage.`
+    }
+  ];
 
-  sex: null, // male | female
-  age: null,
-  height: null,
-  weight: null,
-
-  activity: null, // factor
-  goal: null,     // cut | maintain | bulk
-  pace: 0.5,      // kg/sem for cut/bulk
-
-  advancedOpen: false,
-  carbProfile: "balanced", // low | balanced | high
-
-  proteinPerKg: null,
-  fatMinPerKg: null,
-  carbMinPerKg: null,
-
-  fiber: null,   // g
-  water: null,   // L
-  sodium: null,  // mg
-};
-
-/* ----------------------------- Defaults ----------------------------- */
-
-function defaultsFor(goal, sex, weight){
-  // weight may be null; we still return sane defaults
-  const w = Number(weight) || 80;
-
-  // Base cohérente (simple + durable) — ajustable en Avancé
-  // Protéines (g/kg):
-  //  - base: 1.5 g/kg (ok pour la majorité)
-  //  - sèche: 1.6 g/kg (un peu plus haut pour protéger la masse maigre)
-  // Lipides min (g/kg): garde-fou hormonal/satiété
-  // Glucides min (g/kg): garde-fou perf/humeur
-  let protein = 1.5;
-  let fatMin = 0.7;
-  let carbMin = 1.2;
-
-  if(goal === "cut"){
-    protein = 1.6;
-    fatMin = 0.7;
-    carbMin = 1.0;
-  }else if(goal === "maintain"){
-    protein = 1.5;
-    fatMin = 0.7;
-    carbMin = 1.2;
-  }else if(goal === "bulk"){
-    protein = 1.5;
-    fatMin = 0.7;
-    carbMin = 1.5;
-  }
-
-  // Fiber & water are "nice defaults"
-  const fiber = (sex === "female") ? 25 : 30;
-  const water = clamp((w * 0.035), 2.0, 6.0); // 35 ml/kg
-  const sodium = 2500;
-
-  return {
-    proteinPerKg: protein,
-    fatMinPerKg: fatMin,
-    carbMinPerKg: carbMin,
-    fiber,
-    water: Math.round(water * 10)/10,
-    sodium
+  const connectorTemplates = {
+    contrast: [
+      {
+        en: (c) => `The airflow meets the design value; ${c}, the noise level is still high.`,
+        fr: (cf) => `Le débit respecte la valeur de projet ; ${cf}, le niveau sonore reste élevé.`
+      },
+      {
+        en: (c) => `${c}, the fan speed was reduced to keep the room within comfort limits.`,
+        fr: (cf) => `${cf}, la vitesse du ventilateur a été réduite pour rester dans les limites de confort.`
+      }
+    ],
+    cause: [
+      {
+        en: (c) => `The filter was clogged ${c} the pressure drop increased.`,
+        fr: (cf) => `Le filtre était encrassé ${cf} la perte de charge a augmenté.`
+      },
+      {
+        en: (c) => `The valve was stuck; ${c}, the coil could not be balanced.`,
+        fr: (cf) => `La vanne était bloquée ; ${cf}, la batterie n’a pas pu être équilibrée.`
+      }
+    ],
+    addition: [
+      {
+        en: (c) => `${c}, we verified the BMS trend logs before closing the report.`,
+        fr: (cf) => `${cf}, nous avons vérifié les tendances GTB avant de clôturer le rapport.`
+      },
+      {
+        en: (c) => `We measured temperature; ${c}, we logged humidity for 24 hours.`,
+        fr: (cf) => `Nous avons mesuré la température ; ${cf}, nous avons enregistré l’humidité pendant 24 h.`
+      }
+    ],
+    example: [
+      {
+        en: (c) => `Use certified instruments, ${c} a calibrated manometer.`,
+        fr: (cf) => `Utilise des instruments certifiés, ${cf} un manomètre étalonné.`
+      },
+      {
+        en: (c) => `Typical defects include leaks, ${c} damaged seals.`,
+        fr: (cf) => `Les défauts typiques incluent les fuites, ${cf} des joints endommagés.`
+      }
+    ],
+    clarify: [
+      {
+        en: (c) => `Use calibrated instruments, ${c}, devices with valid certificates.`,
+        fr: (cf) => `Utilise des instruments étalonnés, ${cf}, avec certificats valides.`
+      },
+      {
+        en: (c) => `Record average values, ${c}, 10‑minute means.`,
+        fr: (cf) => `Enregistre des valeurs moyennes, ${cf}, des moyennes sur 10 minutes.`
+      }
+    ],
+    other: [
+      {
+        en: (c) => `In technical writing, "${c}" helps connect ideas clearly.`,
+        fr: (cf) => `En rédaction technique, « ${cf} » aide à relier les idées clairement.`
+      },
+      {
+        en: (c) => `Use "${c}" to structure the reasoning in a report.`,
+        fr: (cf) => `Utilise « ${cf} » pour structurer le raisonnement dans un rapport.`
+      }
+    ]
   };
+
+  const enLower = enTerm.toLowerCase();
+  const isVerb = /^to\s+/i.test(enTerm);
+  const isAdv = enLower.endsWith("ly") || ["about","roughly","approximately","almost","nearly","virtually","practically"].includes(enLower);
+  const nounPhrase = /\s/.test(enTerm) || /^(a|an|the)\s/i.test(enTerm);
+
+  // Unit 5 terms often are connectors; prioritize that
+  if(unit === "Unit 5" && isConnector(enTerm)){
+    const t = connectorType(enTerm);
+    const pool = connectorTemplates[t] || connectorTemplates.other;
+    const [a,b] = pickTwoTemplates(pool, seed);
+    return [
+      {en: a.en(enTerm), fr: a.fr(fr0)},
+      {en: b.en(enTerm), fr: b.fr(fr0)}
+    ];
+  }
+
+  if(isVerb){
+    const v = baseVerb(enTerm);
+    const [a,b] = pickTwoTemplates(verbT, seed);
+    return [
+      {en: a.en(v), fr: a.fr(fr0)},
+      {en: b.en(v), fr: b.fr(fr0)}
+    ];
+  }
+
+  if(isAdv || unit === "Unit 4"){
+    const [a,b] = pickTwoTemplates(advT, seed);
+    return [
+      {en: a.en(enTerm), fr: a.fr(fr0)},
+      {en: b.en(enTerm), fr: b.fr(fr0)}
+    ];
+  }
+
+  if(nounPhrase){
+    const [a,b] = pickTwoTemplates(nounT, seed);
+    return [
+      {en: a.en(enTerm), fr: a.fr(fr0)},
+      {en: b.en(enTerm), fr: b.fr(fr0)}
+    ];
+  }
+
+  // adjective/other single words
+  const [a,b] = pickTwoTemplates(adjT, seed);
+  return [
+    {en: a.en(enTerm), fr: a.fr(fr0)},
+    {en: b.en(enTerm), fr: b.fr(fr0)}
+  ];
 }
 
-function applyAutoDefaultsIfMissing(){
-  if(!state.goal) return;
-  const d = defaultsFor(state.goal, state.sex, state.weight);
+/* ---------------- Tabs ---------------- */
 
-  if(state.proteinPerKg == null) state.proteinPerKg = d.proteinPerKg;
-  if(state.fatMinPerKg == null) state.fatMinPerKg = d.fatMinPerKg;
-  if(state.carbMinPerKg == null) state.carbMinPerKg = d.carbMinPerKg;
-  if(state.fiber == null) state.fiber = d.fiber;
-  if(state.water == null) state.water = d.water;
-  if(state.sodium == null) state.sodium = d.sodium;
-}
-
-/* ----------------------------- Persistence ----------------------------- */
-
-function save(){
-  try{
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-  }catch(_){}
-}
-function load(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return;
-    const s = JSON.parse(raw);
-    state = {...state, ...s};
-  }catch(_){}
-}
-
-/* ----------------------------- UI helpers ----------------------------- */
-
-function setActiveSeg(controlEl, value){
-  $$(".seg", controlEl).forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.value === value);
+function setTab(tabId){
+  ["tabVocab","tabGrammar","tabTests"].forEach(id=>{
+    $(id).classList.toggle("active", id===tabId);
   });
-}
-function setSelectedOption(containerEl, predicate){
-  $$(".option", containerEl).forEach(btn => {
-    btn.classList.toggle("selected", predicate(btn));
+  ["panelVocab","panelGrammar","panelTests"].forEach(id=>{
+    $(id).classList.toggle("active", id===("panel"+tabId.replace("tab","")));
   });
+  localStorage.setItem("tb1_tab", tabId);
 }
 
-function showPanel(step){
-  state.step = clamp(step, 0, 3);
-  els.panels.forEach(p => p.classList.toggle("hidden", p.dataset.panel !== String(state.step)));
+function initTabs(){
+  $("tabVocab").addEventListener("click", ()=>setTab("tabVocab"));
+  $("tabGrammar").addEventListener("click", ()=>setTab("tabGrammar"));
+  $("tabTests").addEventListener("click", ()=>setTab("tabTests"));
 
-  els.steps.forEach(s => {
-    const i = Number(s.dataset.step);
-    s.classList.toggle("active", i === state.step);
-    s.classList.toggle("done", i < state.step);
+  const saved = localStorage.getItem("tb1_tab") || "tabVocab";
+  setTab(saved);
+}
+
+/* ---------------- Vocab ---------------- */
+
+let baseCards = ALL_CARDS.slice();
+let working = [];
+let deck = [];
+let current = 0;
+let isFlipped = false;
+let status = [];
+let dir = []; // "fr_en" or "en_fr" for each card index in deck
+let showFrExamples = false;
+
+function buildWorkingSet(){
+  const unitFilter = $("unitFilter").value;
+  const q = ($("searchBox").value || "").trim().toLowerCase();
+  working = baseCards.filter(c=>{
+    const okUnit = (unitFilter==="all") ? true : (c.unit === unitFilter);
+    if(!okUnit) return false;
+    if(!q) return true;
+    return (c.en.toLowerCase().includes(q) || c.fr.toLowerCase().includes(q));
   });
-
-  els.backBtn.disabled = (state.step === 0);
-  els.nextBtn.textContent = (state.step === 3) ? "Terminé" : "Suivant";
-
-  updateStepMeta();
-
-  // In Simple mode, keep Adjust step available but collapse closed
-  if(state.mode === "simple"){
-    els.collapse.classList.remove("open");
-    els.collapseBody.style.display = "none";
-  }else{
-    els.collapseBody.style.display = "";
-    els.collapse.classList.toggle("open", !!state.advancedOpen);
-    if(!state.advancedOpen) els.collapseBody.style.display = "none";
-  }
-
-  // Scrolling behavior
-  // - Desktop: go to top
-  // - Mobile: keep the form in view and center the active step tab
-  const isMobile = window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
-  const reduced = isReducedMotion();
-  if(isMobile){
-    const form = document.querySelector("section.form");
-    if(form){
-      try{ form.scrollIntoView({block: "start", behavior: reduced ? "auto" : "smooth"}); }catch(_){ /* noop */ }
-    }
-    const activeStep = els.steps && els.steps[state.step];
-    if(activeStep){
-      try{ activeStep.scrollIntoView({inline: "center", block: "nearest", behavior: reduced ? "auto" : "smooth"}); }catch(_){ /* noop */ }
-    }
-  }else{
-    if(!reduced){
-      window.scrollTo({top: 0, behavior: "smooth"});
-    }else{
-      window.scrollTo(0,0);
-    }
-  }
-
-  save();
+  $("countText").textContent = `${working.length} cartes`;
 }
 
-function setMode(mode){
-  state.mode = mode;
-  els.modeSimple.classList.toggle("active", mode === "simple");
-  els.modeAdvanced.classList.toggle("active", mode === "advanced");
-
-  // When switching to simple, close advanced block
-  if(mode === "simple"){
-    state.advancedOpen = false;
+function buildDirections(){
+  const mode = $("directionMode").value;
+  if(mode === "fr_en" || mode === "en_fr"){
+    dir = Array(deck.length).fill(mode);
+  } else {
+    dir = deck.map(()=> (Math.random()<0.5 ? "fr_en" : "en_fr"));
   }
-  save();
-  render();
-  renderDailyChip();
-  showPanel(state.step);
 }
 
-/* ----------------------------- Validation ----------------------------- */
-
-function setError(key, msg){
-  const el = $(`[data-error-for="${key}"]`);
-  if(el) el.textContent = msg || "";
-}
-function clearErrors(){
-  ["sex","age","height","weight","activity","goal"].forEach(k => setError(k,""));
-}
-
-function numVal(inputEl){
-  const v = Number(inputEl.value);
-  return Number.isFinite(v) ? v : null;
+function newQuiz(){
+  buildWorkingSet();
+  deck = shuffle(working);
+  current = 0;
+  status = Array(deck.length).fill(null);
+  buildDirections();
+  renderCard();
 }
 
-function validateCore(){
-  clearErrors();
-
-  let ok = true;
-
-  if(state.sex !== "male" && state.sex !== "female"){
-    setError("sex","Choisis Homme ou Femme.");
-    ok = false;
-  }
-
-  const age = Number(state.age);
-  if(!Number.isFinite(age) || age < 10 || age > 90){
-    setError("age","Âge: 10–90.");
-    ok = false;
-  }
-
-  const h = Number(state.height);
-  if(!Number.isFinite(h) || h < 120 || h > 220){
-    setError("height","Taille: 120–220.");
-    ok = false;
-  }
-
-  const w = Number(state.weight);
-  if(!Number.isFinite(w) || w < 35 || w > 250){
-    setError("weight","Poids: 35–250.");
-    ok = false;
-  }
-
-  const a = Number(state.activity);
-  if(!Number.isFinite(a)){
-    setError("activity","Choisis ton activité.");
-    ok = false;
-  }
-
-  if(!state.goal){
-    setError("goal","Choisis un objectif.");
-    ok = false;
-  }
-
-  return ok;
+function setFlip(state){
+  isFlipped = state;
+  $("card3d").classList.toggle("flipped", isFlipped);
+  $("hint").textContent = isFlipped ? "Choisis : je connais / je connais pas" : "Clique sur la carte pour la retourner";
+  $("actions").style.display = isFlipped ? "flex" : "none";
 }
 
-function canGoNext(){
-  // progressive validation by step
-  clearErrors();
-  if(state.step === 0){
-    let ok=true;
-    if(state.sex !== "male" && state.sex !== "female"){ setError("sex","Choisis Homme ou Femme."); ok=false; }
-    const age = Number(state.age);
-    if(!Number.isFinite(age) || age < 10 || age > 90){ setError("age","Âge: 10–90."); ok=false; }
-    const h = Number(state.height);
-    if(!Number.isFinite(h) || h < 120 || h > 220){ setError("height","Taille: 120–220."); ok=false; }
-    const w = Number(state.weight);
-    if(!Number.isFinite(w) || w < 35 || w > 250){ setError("weight","Poids: 35–250."); ok=false; }
-    return ok;
-  }
-  if(state.step === 1){
-    const a = Number(state.activity);
-    if(!Number.isFinite(a)){ setError("activity","Choisis ton activité."); return false; }
-    return true;
-  }
-  if(state.step === 2){
-    if(!state.goal){ setError("goal","Choisis un objectif."); return false; }
-    if(state.goal !== "maintain"){
-      const p = Number(state.pace);
-      if(!Number.isFinite(p) || p <= 0){ setError("goal","Choisis un rythme."); return false; }
-    }
-    return true;
-  }
-  return true;
-}
-
-/* ----------------------------- Math engine ----------------------------- */
-
-function calcPlan(){
-  if(!validateCore()) return null;
-
-  const sex = state.sex;
-  const age = Number(state.age);
-  const h = Number(state.height);
-  const w = Number(state.weight);
-  const pal = Number(state.activity);
-
-  // Mifflin-St Jeor
-  const bmr = (sex === "male")
-    ? (10*w + 6.25*h - 5*age + 5)
-    : (10*w + 6.25*h - 5*age - 161);
-
-  const tdee = bmr * pal;
-
-  // Goal delta
-  let delta = 0; // kcal/day
-  if(state.goal === "cut"){
-    delta = -(Number(state.pace) * 7700 / 7);
-  }else if(state.goal === "bulk"){
-    delta = +(Number(state.pace) * 7700 / 7);
-  }else{
-    delta = 0;
-  }
-
-  // Round target early so macros can match the displayed kcal cleanly.
-  const target = Math.round(tdee + delta);
-
-  // Advanced defaults
-  applyAutoDefaultsIfMissing();
-
-  // In Simple mode, we enforce defaults (but still stored)
-  const d = defaultsFor(state.goal, state.sex, state.weight);
-
-  // Read user settings (advanced) or defaults (simple), then clamp to sane ranges.
-  const proteinPerKgRaw = (state.mode === "simple") ? d.proteinPerKg : Number(state.proteinPerKg);
-  const fatMinPerKgRaw  = (state.mode === "simple") ? d.fatMinPerKg  : Number(state.fatMinPerKg);
-  const carbMinPerKgRaw = (state.mode === "simple") ? d.carbMinPerKg : Number(state.carbMinPerKg);
-
-  const proteinPerKg = clamp(proteinPerKgRaw, 1.2, 3.0);
-  const fatMinPerKg  = clamp(fatMinPerKgRaw, 0.4, 1.4);
-  const carbMinPerKg = clamp(carbMinPerKgRaw, 0.0, 4.0);
-
-  const fiber = (state.mode === "simple") ? d.fiber : Number(state.fiber);
-  const water = (state.mode === "simple") ? d.water : Number(state.water);
-  const sodium = (state.mode === "simple") ? d.sodium : Number(state.sodium);
-
-  // Carb profile adjusts the *fat target* a bit (keeps look & feel "coach"),
-  // BUT we always compute carbs as the remainder so kcal stay consistent.
-  // (Low carbs → a bit more fat; High carbs → fat closer to the minimum.)
-  let fatPerKgTarget = fatMinPerKg;
-  if(state.carbProfile === "balanced") fatPerKgTarget = fatMinPerKg + 0.10;
-  if(state.carbProfile === "low") fatPerKgTarget = fatMinPerKg + 0.25;
-  if(state.carbProfile === "high") fatPerKgTarget = fatMinPerKg;
-
-  // FLOATS first (to avoid rounding drift), then reconcile carbs last.
-  let proteinGf = w * proteinPerKg;
-  let fatGf = w * fatPerKgTarget;
-  const fatGMinF = w * fatMinPerKg;
-  if(fatGf < fatGMinF) fatGf = fatGMinF;
-
-  // initial carbs (float)
-  let carbGf = (target - (proteinGf*4) - (fatGf*9)) / 4;
-  if(!Number.isFinite(carbGf)) carbGf = 0;
-  carbGf = Math.max(0, carbGf);
-
-  // If carbs are below the chosen minimum, try lowering fat down to its minimum.
-  const carbMinGF = w * carbMinPerKg;
-  if(carbGf < carbMinGF){
-    fatGf = fatGMinF; // lowest we allow
-    carbGf = (target - (proteinGf*4) - (fatGf*9)) / 4;
-    carbGf = Math.max(0, Number.isFinite(carbGf) ? carbGf : 0);
-  }
-
-  // Round protein/fat, then set carbs as the exact remainder (best coherence).
-  let proteinG = Math.round(proteinGf);
-  let fatG = Math.round(fatGf);
-  let carbG = Math.max(0, Math.round((target - proteinG*4 - fatG*9) / 4));
-
-  // Enforce integer carb minimum if possible by reducing fat (down to min).
-  const fatGMin = Math.round(fatGMinF);
-  const carbMinG = Math.round(carbMinGF);
-  if(carbG < carbMinG && fatG > fatGMin){
-    const needCarbG = carbMinG - carbG;
-    const needKcal = needCarbG * 4;
-    const reducibleFatG = fatG - fatGMin;
-    const reduceFatG = Math.min(reducibleFatG, Math.ceil(needKcal / 9));
-    fatG -= reduceFatG;
-    carbG = Math.max(0, Math.round((target - proteinG*4 - fatG*9) / 4));
-  }
-
-  // coherence score
-  const coherence = computeCoherence({bmr, tdee, delta, target, proteinPerKg, fatMinPerKg, carbMinPerKg});
-
-  // warnings
-  const warnings = [];
-
-  // If we still can't satisfy minimums, warn clearly (the kcal target is too low).
-  if(carbG < carbMinG){
-    warnings.push({type:"info", text:"Glucides sous ton minimum configuré (calories trop basses pour respecter tous les minimums)."});
-  }
-  if(state.goal === "cut" && Math.abs(delta) > 1000){
-    warnings.push({type:"warn", text:"Déficit agressif (> 1000 kcal/j). Plus dur à tenir — surveille énergie, sommeil, faim."});
-  }
-  if(state.goal === "bulk" && delta > 600){
-    warnings.push({type:"info", text:"Surplus élevé. Si tu prends trop vite, baisse le rythme pour limiter le gras."});
-  }
-  if(target < bmr){
-    warnings.push({type:"warn", text:"Ta cible est sous ton BMR (très bas). Ajuste le rythme ou l’activité estimée."});
-  }
-  if(target < 1200){
-    warnings.push({type:"warn", text:"Cible très basse (< 1200 kcal/j). Ce n'est généralement pas durable."});
-  }
-
-  return {
-    bmr, tdee, delta, target,
-    proteinG, fatG, carbG,
-    fiber, water, sodium,
-    coherence,
-    warnings
-  };
-}
-
-function computeCoherence({bmr, tdee, delta, target, proteinPerKg, fatMinPerKg, carbMinPerKg}){
-  let score = 100;
-
-  // deficit/surplus sanity
-  if(delta < 0){
-    const def = Math.abs(delta);
-    if(def > 1100) score -= 35;
-    else if(def > 900) score -= 18;
-    // Très lent (ex: 0.10 kg/sem) = OK, juste moins "impact".
-    else if(def < 60) score -= 12;
-    else if(def < 120) score -= 6;
-  }else if(delta > 0){
-    if(delta > 650) score -= 25;
-    else if(delta > 500) score -= 12;
-    else if(delta < 80) score -= 10;
-  }
-
-  // protein/fat floors
-  if(proteinPerKg < 1.6) score -= 18;
-  if(proteinPerKg > 2.8) score -= 6;
-
-  if(fatMinPerKg < 0.6) score -= 20;
-  if(fatMinPerKg > 1.3) score -= 6;
-
-  if(carbMinPerKg < 0.5) score -= 6;
-
-  if(target < bmr) score -= 25;
-
-  return clamp(score, 0, 100);
-}
-
-/* ----------------------------- Rendering ----------------------------- */
-
-let lastNumbers = {kcal:null, p:null, f:null, c:null, coh:null};
-
-function animateNumber(el, from, to, ms=260, formatter=(x)=>String(Math.round(x))){
-  if(isReducedMotion() || from == null || !Number.isFinite(from) || !Number.isFinite(to)){
-    el.textContent = formatter(to);
-    return;
-  }
-  const start = performance.now();
-  const diff = to - from;
-  const ease = (t)=> (t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2);
-  function frame(now){
-    const t = clamp((now - start)/ms, 0, 1);
-    const v = from + diff * ease(t);
-    el.textContent = formatter(v);
-    if(t < 1) requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-function render(){
-  // mode buttons
-  els.modeSimple.classList.toggle("active", state.mode === "simple");
-  els.modeAdvanced.classList.toggle("active", state.mode === "advanced");
-
-  // segmented
-  if(state.sex) setActiveSeg(els.sexControl, state.sex);
-  setActiveSeg(els.carbProfileControl, state.carbProfile);
-
-  // values
-  els.age.value = state.age ?? "";
-  els.height.value = state.height ?? "";
-  els.weight.value = state.weight ?? "";
-
-  // activity & goal cards
-  setSelectedOption(els.activityCards, btn => Number(btn.dataset.factor) === Number(state.activity));
-  setSelectedOption(els.goalCards, btn => btn.dataset.goal === state.goal);
-
-  // pace
-  const showPace = (state.goal === "cut" || state.goal === "bulk");
-  els.paceWrap.classList.toggle("hidden", !showPace);
-
-  if(showPace){
-    if(state.goal === "cut"){
-      // Oui: tu peux faire une sèche à 0.10 kg/sem (très douce) — l'app ne doit pas te bloquer.
-      els.pace.min = "0.10"; els.pace.max = "1.00"; els.pace.step = "0.05";
-      if(Number(state.pace) < 0.10 || Number(state.pace) > 1.00) state.pace = 0.50;
-      els.paceHint.textContent = "Sèche: 0.10–1.00 kg/sem (doux = facile, rapide = plus dur).";
-    }else{
-      els.pace.min = "0.10"; els.pace.max = "0.50"; els.pace.step = "0.05";
-      if(Number(state.pace) < 0.10 || Number(state.pace) > 0.50) state.pace = 0.25;
-      els.paceHint.textContent = "Masse: 0.10–0.50 kg/sem (lent = plus propre).";
-    }
-    els.pace.value = String(state.pace);
-    els.paceValue.textContent = Number(state.pace).toFixed(2);
-  }
-
-  // advanced inputs
-  applyAutoDefaultsIfMissing();
-  els.proteinPerKg.value = (state.proteinPerKg ?? "").toString();
-  els.fatMinPerKg.value = (state.fatMinPerKg ?? "").toString();
-  els.carbMinPerKg.value = (state.carbMinPerKg ?? "").toString();
-  els.fiber.value = (state.fiber ?? "").toString();
-  els.water.value = (state.water ?? "").toString();
-  els.sodium.value = (state.sodium ?? "").toString();
-
-  // collapse
-  if(state.mode === "simple"){
-    els.collapse.classList.remove("open");
-    els.collapseBody.style.display = "none";
-  }else{
-    els.collapse.classList.toggle("open", !!state.advancedOpen);
-    els.collapseBody.style.display = state.advancedOpen ? "" : "none";
-  }
-
-  // compute & paint result
-  const plan = calcPlan();
-  if(!plan){
-    els.kcalValue.textContent = "—";
-    els.chipTdee.textContent = "TDEE —";
-    els.chipDelta.textContent = "Δ —";
-    els.pVal.textContent = "— g";
-    els.fVal.textContent = "— g";
-    els.cVal.textContent = "— g";
-    els.pBar.style.width = "0%";
-    els.fBar.style.width = "0%";
-    els.cBar.style.width = "0%";
-    els.waterVal.textContent = "—";
-    els.fiberVal.textContent = "—";
-    els.sodiumVal.textContent = "—";
-    els.alerts.innerHTML = "";
-    els.cohValue.textContent = "—";
-    els.resultCard.classList.remove("visible");
+function renderCard(){
+  if(deck.length === 0){
+    $("unitBadge").textContent = "—";
+    $("frontLabel").textContent = "—";
+    $("backLabel").textContent = "—";
+    $("frontWord").textContent = "Aucune carte (filtre / recherche trop stricts).";
+    $("backWord").textContent = "—";
+    $("progressText").textContent = `0 / 0`;
+    $("progressBar").style.width = `0%`;
+    $("examplesEn").innerHTML = "—";
+    $("examplesFr").innerHTML = "";
+    $("examplesFr").style.display = "none";
+    setFlip(false);
     return;
   }
 
-  // make visible when valid
-  els.resultCard.classList.add("visible");
+  const c = deck[current];
+  const mode = dir[current] || "fr_en";
 
-  // animated values
-  animateNumber(els.kcalValue, lastNumbers.kcal, plan.target, 280, (x)=>Math.round(x).toString());
-  lastNumbers.kcal = plan.target;
+  const frontText = (mode === "fr_en") ? c.fr : c.en;
+  const backText  = (mode === "fr_en") ? c.en : c.fr;
 
-  els.chipTdee.textContent = `TDEE ${Math.round(plan.tdee)}`;
-  const deltaSign = plan.delta >= 0 ? "+" : "−";
-  const deltaAbs = Math.round(Math.abs(plan.delta));
-  els.chipDelta.textContent = `Δ ${deltaSign}${deltaAbs}`;
+  $("unitBadge").textContent = c.unit;
+  $("frontLabel").textContent = (mode === "fr_en") ? "Français" : "English";
+  $("backLabel").textContent  = (mode === "fr_en") ? "English" : "Français";
+  $("frontWord").textContent = frontText;
+  $("backWord").textContent = backText;
 
-  // deficit/surplus chip coloring
-  els.chipDelta.classList.remove("aggressive");
-  if(state.goal === "cut" && Math.abs(plan.delta) > 1000){
-    els.chipDelta.classList.add("aggressive");
+  // Examples
+  const ex = getExamples(c);
+  $("examplesEn").innerHTML = `• ${ex[0].en}<br>• ${ex[1].en}`;
+  $("examplesFr").innerHTML = `• ${ex[0].fr}<br>• ${ex[1].fr}`;
+  $("examplesFr").style.display = "none";
+
+  // Progress
+  $("progressText").textContent = `${current+1} / ${deck.length}`;
+  $("progressBar").style.width = `${((current+1)/deck.length)*100}%`;
+
+  setFlip(false);
+}
+
+function nextCard(){
+  if(deck.length === 0) return;
+  current = Math.min(current+1, deck.length-1);
+  renderCard();
+}
+
+function prevCard(){
+  if(deck.length === 0) return;
+  current = Math.max(current-1, 0);
+  renderCard();
+}
+
+function mark(known){
+  if(deck.length === 0) return;
+  status[current] = known ? "yes" : "no";
+  // move forward
+  if(current < deck.length-1){
+    current++;
+    renderCard();
+  } else {
+    // finished
+    $("frontWord").textContent = "Terminé ✅";
+    $("backWord").textContent = "Tu peux remélanger ou changer les filtres.";
+    $("hint").textContent = `Score: ${status.filter(x=>x==="yes").length} / ${status.length}`;
+    $("actions").style.display = "none";
+    $("examplesEn").innerHTML = "—";
+    $("examplesFr").innerHTML = "";
+    $("examplesFr").style.display = "none";
   }
+}
 
-  animateNumber(els.pVal, lastNumbers.p, plan.proteinG, 240, (x)=>`${Math.round(x)} g`);
-  animateNumber(els.fVal, lastNumbers.f, plan.fatG, 240, (x)=>`${Math.round(x)} g`);
-  animateNumber(els.cVal, lastNumbers.c, plan.carbG, 240, (x)=>`${Math.round(x)} g`);
-  lastNumbers.p = plan.proteinG; lastNumbers.f = plan.fatG; lastNumbers.c = plan.carbG;
+function toggleExamplesTranslation(){
+  const box = $("examplesFr");
+  box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
+}
 
-  // bars (relative: based on kcal share)
-  const pk = plan.proteinG*4;
-  const fk = plan.fatG*9;
-  const ck = plan.carbG*4;
-  const total = Math.max(1, pk+fk+ck);
-  els.pBar.style.width = `${clamp(pk/total*100, 2, 100)}%`;
-  els.fBar.style.width = `${clamp(fk/total*100, 2, 100)}%`;
-  els.cBar.style.width = `${clamp(ck/total*100, 2, 100)}%`;
+function initVocab(){
+  // populate unit filter
+  const units = ["all","Unit 1","Unit 2","Unit 3","Unit 4","Unit 5","Unit 6"];
+  units.forEach(u=>{
+    const opt = document.createElement("option");
+    opt.value = u === "all" ? "all" : u;
+    opt.textContent = (u==="all") ? "Toutes les unités" : u;
+    $("unitFilter").appendChild(opt);
+  });
 
-  const pPct = Math.round(pk/total*100);
-  const fPct = Math.round(fk/total*100);
-  const cPct = Math.round(ck/total*100);
-  if(els.pPct) els.pPct.textContent = `${pPct}%`;
-  if(els.fPct) els.fPct.textContent = `${fPct}%`;
-  if(els.cPct) els.cPct.textContent = `${cPct}%`;
+  // restore settings
+  const savedDir = localStorage.getItem("tb1_dir") || "random";
+  $("directionMode").value = savedDir;
 
-  // premium: a short shine on update
-  if(!isReducedMotion()){
-    [els.pBar, els.fBar, els.cBar].forEach(el=>{
-      if(!el) return;
-      el.classList.remove("shine");
-      // force reflow
-      void el.offsetWidth;
-      el.classList.add("shine");
+  $("directionMode").addEventListener("change", ()=>{
+    localStorage.setItem("tb1_dir", $("directionMode").value);
+    buildDirections();
+    renderCard();
+  });
+
+  $("unitFilter").addEventListener("change", newQuiz);
+  $("searchBox").addEventListener("input", ()=>{
+    // don't reshuffle on every keypress; just rebuild working set + re-render current if in range
+    buildWorkingSet();
+    deck = working.slice();
+    current = 0;
+    status = Array(deck.length).fill(null);
+    buildDirections();
+    renderCard();
+  });
+
+  $("btnShuffle").addEventListener("click", newQuiz);
+  $("btnPrev").addEventListener("click", prevCard);
+  $("btnNext").addEventListener("click", nextCard);
+  $("btnYes").addEventListener("click", ()=>mark(true));
+  $("btnNo").addEventListener("click", ()=>mark(false));
+  $("btnToggleTr").addEventListener("click", toggleExamplesTranslation);
+
+  $("scene").addEventListener("click", ()=>setFlip(!isFlipped));
+
+  newQuiz();
+}
+
+/* ---------------- Grammar ---------------- */
+
+function renderGrammar(){
+  const root = $("grammarRoot");
+  root.innerHTML = "";
+
+  GRAMMAR_UNITS.forEach((u, idx)=>{
+    const wrap = document.createElement("div");
+    wrap.className = "grammar-unit";
+
+    const header = document.createElement("div");
+    header.className = "grammar-header";
+    header.innerHTML = `<h2>${u.unit} — ${u.title}</h2><div class="chev">▾</div>`;
+    wrap.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "grammar-body";
+
+    u.rules.forEach(r=>{
+      const div = document.createElement("div");
+      div.className = "rule";
+      const patterns = (r.patterns && r.patterns.length) ? `<div class="note"><b>Patterns:</b> ${r.patterns.join(" · ")}</div>` : "";
+      const exHtml = (r.examples||[]).map(e=>`<div class="ex">• ${e.en}<div class="fr">→ ${e.fr}</div></div>`).join("");
+      div.innerHTML = `<div class="name">${r.name}</div><div class="note">${r.note}</div>${patterns}${exHtml}`;
+      body.appendChild(div);
+    });
+
+    // exercises
+    const exTitle = document.createElement("div");
+    exTitle.style.marginTop = "12px";
+    exTitle.style.fontWeight = "900";
+    exTitle.textContent = "Mini‑exercices";
+    body.appendChild(exTitle);
+
+    u.exercises.forEach((ex, exIdx)=>{
+      const exWrap = document.createElement("div");
+      exWrap.className = "exercise";
+      const exId = `g_${idx}_${exIdx}`;
+
+      let inputHtml = "";
+      if(ex.type === "mcq"){
+        inputHtml = `<div class="opts">${
+          ex.options.map((o,i)=>`
+            <label style="display:flex; gap:10px; align-items:flex-start;">
+              <input type="radio" name="${exId}" value="${o}" style="margin-top:3px;">
+              <span>${o}</span>
+            </label>
+          `).join("")
+        }</div>`;
+      } else {
+        inputHtml = `<input type="text" id="${exId}" placeholder="Réponse…">`;
+      }
+
+      exWrap.innerHTML = `
+        <div class="prompt">${ex.prompt}</div>
+        ${inputHtml}
+        <button class="check" data-unit="${idx}" data-ex="${exIdx}">Vérifier</button>
+        <div class="result" id="${exId}_res"></div>
+      `;
+      body.appendChild(exWrap);
+    });
+
+    wrap.appendChild(body);
+
+    header.addEventListener("click", ()=>{
+      const opened = body.style.display === "block";
+      body.style.display = opened ? "none" : "block";
+      header.querySelector(".chev").textContent = opened ? "▾" : "▴";
+    });
+
+    root.appendChild(wrap);
+  });
+
+  // delegate checks
+  root.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button.check");
+    if(!btn) return;
+    const unitIdx = parseInt(btn.dataset.unit,10);
+    const exIdx = parseInt(btn.dataset.ex,10);
+    const ex = GRAMMAR_UNITS[unitIdx].exercises[exIdx];
+
+    const resEl = btn.parentElement.querySelector(".result");
+
+    let user = "";
+    if(ex.type === "mcq"){
+      const name = `g_${unitIdx}_${exIdx}`;
+      const checked = btn.parentElement.querySelector(`input[name="${name}"]:checked`);
+      user = checked ? checked.value : "";
+    } else {
+      user = (btn.parentElement.querySelector("input[type='text']").value || "").trim();
+    }
+
+    const ok = checkExercise(ex, user);
+    resEl.innerHTML = ok
+      ? `<span class="good">✅ Correct</span> — ${escapeHtml(ex.explain || "")}`
+      : `<span class="bad">❌ Pas encore</span> — Réponse: <b>${escapeHtml(ex.answer)}</b>. ${escapeHtml(ex.explain || "")}`;
+  }, { once:false });
+}
+
+function normalize(s){ return (s||"").trim().toLowerCase().replace(/\s+/g," "); }
+
+function checkExercise(ex, userAnswer){
+  const u = normalize(userAnswer);
+  const a = normalize(ex.answer);
+  if(!u) return false;
+  if(u === a) return true;
+  if(ex.alts && ex.alts.some(x=>normalize(x)===u)) return true;
+  return false;
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"]/g, (c)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+}
+
+/* ---------------- Tests ---------------- */
+
+let testState = null;
+
+function startTest(){
+  const mode = $("testMode").value;
+  const count = parseInt($("testCount").value,10) || 20;
+
+  const questions = [];
+  const poolCards = (working && working.length) ? working : baseCards;
+
+  function addVocabQ(card){
+    const dir = (Math.random()<0.5) ? "fr_en" : "en_fr";
+    const q = (dir==="fr_en") ? card.fr : card.en;
+    const ans = (dir==="fr_en") ? card.en : card.fr;
+    questions.push({
+      kind:"vocab",
+      unit: card.unit,
+      prompt:`Traduire: ${q}`,
+      answer: ans
     });
   }
 
-  // "À faire aujourd’hui"
-  if(els.todoKcal) els.todoKcal.textContent = `${Math.round(plan.target)} kcal`;
-  if(els.todoP) els.todoP.textContent = `${plan.proteinG} g`;
-  if(els.todoWater) els.todoWater.textContent = `${plan.water.toFixed(1)} L`;
-  if(els.todoFiber) els.todoFiber.textContent = `${Math.round(plan.fiber)} g`;
-
-
-  // advanced minis (always computed, but visible mostly on mobile expanded)
-  els.waterVal.textContent = `${plan.water.toFixed(1)} L`;
-  els.fiberVal.textContent = `${Math.round(plan.fiber)} g`;
-  els.sodiumVal.textContent = `${Math.round(plan.sodium)} mg`;
-
-  // coherence ring
-  animateNumber(els.cohValue, lastNumbers.coh, plan.coherence, 260, (x)=>`${Math.round(x)}`);
-  lastNumbers.coh = plan.coherence;
-
-  // ring border color based on score
-  let ringColor = "rgba(45,226,197,.45)";
-  if(plan.coherence < 55) ringColor = "rgba(255,90,106,.45)";
-  else if(plan.coherence < 75) ringColor = "rgba(255,138,76,.45)";
-  els.cohRing.style.borderColor = ringColor;
-
-  // score explanation (why not 100?)
-  if(els.scoreHint && els.scoreList){
-    const adds = [];
-    const wkg = Number(state.weight) || 0;
-    // Suggested thresholds
-    const defAbs = Math.round(Math.abs(plan.delta));
-    if(state.goal === "cut"){
-      if(defAbs >= 600) adds.push({points:"+6", text:"si déficit < 600 kcal"});
-      if(Number(state.proteinPerKg) < 1.6) adds.push({points:"+3", text:"si protéines ≥ 1.6 g/kg"});
-      if(Number(state.fatMinPerKg) < 0.8) adds.push({points:"+4", text:"si lipides ≥ 0.8 g/kg"});
-    }else{
-      if(Number(state.proteinPerKg) < 1.5) adds.push({points:"+3", text:"si protéines ≥ 1.5 g/kg"});
-      if(Number(state.fatMinPerKg) < 0.7) adds.push({points:"+4", text:"si lipides ≥ 0.7 g/kg"});
-    }
-
-    const label = (plan.coherence >= 80) ? "Bon équilibre" : (plan.coherence >= 60) ? "À optimiser" : "À corriger";
-    els.scoreHint.textContent = `${plan.coherence} — ${label}`;
-    els.scoreList.innerHTML = "";
-    const base = document.createElement("div");
-    base.className = "score-row";
-    base.textContent = "Pourquoi pas 100 ?";
-    els.scoreList.appendChild(base);
-
-    if(adds.length === 0){
-      const li = document.createElement("div");
-      li.className = "score-item";
-      li.textContent = "Tu es déjà dans une zone très propre. Ajuste surtout selon ton ressenti.";
-      els.scoreList.appendChild(li);
-    }else{
-      adds.slice(0,3).forEach(a=>{
-        const li = document.createElement("div");
-        li.className = "score-item";
-        li.innerHTML = `<span class="score-plus">${a.points}</span><span>${a.text}</span>`;
-        els.scoreList.appendChild(li);
+  function addGrammarQ(ex, unit){
+    if(ex.type === "mcq"){
+      questions.push({
+        kind:"grammar",
+        unit,
+        prompt: ex.prompt,
+        type:"mcq",
+        options: ex.options,
+        answer: ex.answer,
+        explain: ex.explain || ""
+      });
+    } else {
+      questions.push({
+        kind:"grammar",
+        unit,
+        prompt: ex.prompt,
+        type:"fill",
+        answer: ex.answer,
+        alts: ex.alts || [],
+        explain: ex.explain || ""
       });
     }
   }
 
-  renderDailyChip();
-
-
-  // alerts
-  els.alerts.innerHTML = "";
-  plan.warnings.forEach(w => {
-    const div = document.createElement("div");
-    div.className = `alert-soft ${w.type}`;
-    div.textContent = w.text;
-    els.alerts.appendChild(div);
-  });
-
-  save();
-}
-
-
-/* ----------------------------- Toast ----------------------------- */
-let toastTimer = null;
-function showToast(msg){
-  if(!els.toast) return;
-  els.toastText.textContent = msg;
-  els.toast.classList.add("show");
-  if(toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=> els.toast.classList.remove("show"), 1800);
-}
-
-/* ----------------------------- Plan actions ----------------------------- */
-
-function buildPlanText(plan){
-  const d = new Date();
-  const dateStr = d.toLocaleDateString("fr-CH", {weekday:"short", year:"numeric", month:"2-digit", day:"2-digit"});
-  const deltaSign = plan.delta >= 0 ? "+" : "−";
-  const deltaAbs = Math.round(Math.abs(plan.delta));
-  return [
-    `Nutrition-Track — Plan du jour (${dateStr})`,
-    ``,
-    `Calories : ${Math.round(plan.target)} kcal/j`,
-    `Protéines : ${plan.proteinG} g`,
-    `Lipides : ${plan.fatG} g`,
-    `Glucides : ${plan.carbG} g`,
-    ``,
-    `Eau : ${Math.round(plan.water*10)/10} L`,
-    `Fibres : ${Math.round(plan.fiber)} g`,
-    `Sodium : ${Math.round(plan.sodium)} mg`,
-    ``,
-    `TDEE : ${Math.round(plan.tdee)} kcal  |  Δ ${deltaSign}${deltaAbs} kcal`
-  ].join("\n");
-}
-
-async function copyPlan(plan){
-  const text = buildPlanText(plan);
-  try{
-    await navigator.clipboard.writeText(text);
-    showToast("Plan copié ✅");
-  }catch(_){
-    // fallback
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.select();
-    try{ document.execCommand("copy"); showToast("Plan copié ✅"); }catch(__){ showToast("Copie impossible"); }
-    ta.remove();
-  }
-}
-
-function setDailyPlan(plan){
-  const payload = {
-    dateISO: new Date().toISOString().slice(0,10),
-    kcal: Math.round(plan.target),
-    P: plan.proteinG,
-    F: plan.fatG,
-    C: plan.carbG,
-    water: Math.round(plan.water*10)/10,
-    fiber: Math.round(plan.fiber),
-    sodium: Math.round(plan.sodium),
-    tdee: Math.round(plan.tdee),
-    delta: Math.round(plan.delta),
-  };
-  try{
-    localStorage.setItem("nt_daily_plan_v1", JSON.stringify(payload));
-    showToast("Plan du jour enregistré ✓");
-  }catch(_){
-    showToast("Stockage indisponible");
-  }
-}
-
-function renderDailyChip(){
-  if(!els.dailyChip) return;
-  try{
-    const raw = localStorage.getItem("nt_daily_plan_v1");
-    if(!raw){ els.dailyChip.classList.add("hidden"); return; }
-    const p = JSON.parse(raw);
-    const today = new Date().toISOString().slice(0,10);
-    if(p && p.dateISO === today){
-      els.dailyChip.textContent = "Plan d’aujourd’hui";
-      els.dailyChip.classList.remove("hidden");
-    }else{
-      els.dailyChip.classList.add("hidden");
-    }
-  }catch(_){
-    els.dailyChip.classList.add("hidden");
-  }
-}
-
-function sharePlanImage(plan){
-  // simple PNG export via canvas (download)
-  const w = 1080, h = 608;
-  const c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  const ctx = c.getContext("2d");
-
-  // background
-  const g = ctx.createLinearGradient(0,0,w,h);
-  g.addColorStop(0, "#0B1220");
-  g.addColorStop(1, "#111B2E");
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,w,h);
-
-  // accent strip
-  const g2 = ctx.createLinearGradient(0,0,w,0);
-  g2.addColorStop(0, "rgba(45,226,197,.9)");
-  g2.addColorStop(1, "rgba(255,138,76,.9)");
-  ctx.fillStyle = g2;
-  ctx.fillRect(0,0,w,10);
-
-  // text
-  ctx.fillStyle = "#EAF0FF";
-  ctx.font = "700 44px Inter, system-ui, -apple-system, Segoe UI, Roboto";
-  ctx.fillText("Nutrition-Track — Plan du jour", 64, 110);
-
-  ctx.font = "800 96px Inter, system-ui, -apple-system, Segoe UI, Roboto";
-  ctx.fillText(`${Math.round(plan.target)} kcal`, 64, 220);
-
-  ctx.font = "600 34px Inter, system-ui, -apple-system, Segoe UI, Roboto";
-  ctx.fillStyle = "rgba(234,240,255,.85)";
-  ctx.fillText(`P ${plan.proteinG} g   •   F ${plan.fatG} g   •   C ${plan.carbG} g`, 64, 290);
-
-  ctx.fillStyle = "rgba(234,240,255,.75)";
-  ctx.font = "500 28px Inter, system-ui, -apple-system, Segoe UI, Roboto";
-  ctx.fillText(`TDEE ${Math.round(plan.tdee)}  |  Δ ${plan.delta>=0?"+":"−"}${Math.round(Math.abs(plan.delta))}`, 64, 350);
-  ctx.fillText(`Eau ${Math.round(plan.water*10)/10} L  •  Fibres ${Math.round(plan.fiber)} g  •  Sodium ${Math.round(plan.sodium)} mg`, 64, 400);
-
-  const url = c.toDataURL("image/png");
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `nutrition-plan-${new Date().toISOString().slice(0,10)}.png`;
-  a.click();
-  showToast("Image exportée ✓");
-}
-
-/* ----------------------------- Tooltips (info bubbles) ----------------------------- */
-
-let tipEl = null;
-function closeTip(){
-  if(tipEl){
-    tipEl.remove();
-    tipEl = null;
-    document.removeEventListener("click", onOutsideTip, true);
-  }
-}
-function onOutsideTip(e){
-  if(tipEl && !tipEl.contains(e.target) && !e.target.classList.contains("info")){
-    closeTip();
-  }
-}
-function openTip(anchor, text){
-  closeTip();
-  tipEl = document.createElement("div");
-  tipEl.className = "tip";
-  tipEl.textContent = text;
-  document.body.appendChild(tipEl);
-
-  const r = anchor.getBoundingClientRect();
-  const x = clamp(r.left, 12, window.innerWidth - 300);
-  const y = r.bottom + 10;
-  tipEl.style.left = `${x}px`;
-  tipEl.style.top = `${y}px`;
-
-  requestAnimationFrame(()=> tipEl.classList.add("show"));
-  document.addEventListener("click", onOutsideTip, true);
-}
-
-/* ----------------------------- Onboarding (mini tour) ----------------------------- */
-
-const tourSteps = [
-  {
-    title: "1/3 — Profil",
-    text: "Entre ton sexe, âge, taille et poids. Le plan se met à jour dès que tout est valide.",
-    focus: () => $("#panelProfile"),
-    gotoStep: 0
-  },
-  {
-    title: "2/3 — Activité",
-    text: "Choisis le niveau qui te ressemble. C’est la clé pour un TDEE réaliste.",
-    focus: () => $("#panelActivity"),
-    gotoStep: 1
-  },
-  {
-    title: "3/3 — Résultat",
-    text: "Ici : calories cibles + macros. Ajuste ensuite le rythme si tu veux affiner.",
-    focus: () => $("#resultCard"),
-    gotoStep: 2
-  }
-];
-let tourIndex = 0;
-
-function renderTourDots(){
-  els.tourDots.innerHTML = "";
-  tourSteps.forEach((_, i)=>{
-    const d = document.createElement("div");
-    d.className = "dot" + (i === tourIndex ? " active" : "");
-    els.tourDots.appendChild(d);
-  });
-}
-
-function positionTourSpot(targetEl){
-  const r = targetEl.getBoundingClientRect();
-  const pad = 8;
-  els.tourSpot.style.left = `${r.left - pad}px`;
-  els.tourSpot.style.top = `${r.top - pad}px`;
-  els.tourSpot.style.width = `${r.width + pad*2}px`;
-  els.tourSpot.style.height = `${r.height + pad*2}px`;
-}
-
-function openTour(force=false){
-  if(!force){
-    try{
-      if(localStorage.getItem(TOUR_KEY) === "1") return;
-    }catch(_){}
+  if(mode === "vocab" || mode === "mixed"){
+    const pick = shuffle(poolCards).slice(0, count);
+    pick.forEach(addVocabQ);
   }
 
-  els.tour.classList.remove("hidden");
-  tourIndex = 0;
-  applyTourStep();
-}
-
-function closeTour(){
-  els.tour.classList.add("hidden");
-  try{ localStorage.setItem(TOUR_KEY, "1"); }catch(_){}
-
-  // UX: après la visite, on revient au début (Profil) pour passer à l’action.
-  showPanel(0);
-  // Ensure focus/viewport is sane
-  if(!isReducedMotion()){
-    window.scrollTo({top: 0, behavior: "smooth"});
-  }else{
-    window.scrollTo(0,0);
-  }
-
-  // keep mobile reserve accurate
-  updateSheetReserve();
-}
-
-function applyTourStep(){
-  const step = tourSteps[tourIndex];
-  showPanel(step.gotoStep);
-  render(); // ensure panel visible
-
-  els.tourTitle.textContent = step.title;
-  els.tourText.textContent = step.text;
-
-  renderTourDots();
-
-  const target = step.focus();
-  if(target){
-    // allow layout settle
-    setTimeout(()=> positionTourSpot(target), 50);
-  }
-
-  els.tourBack.disabled = (tourIndex === 0);
-  els.tourNext.textContent = (tourIndex === tourSteps.length - 1) ? "Terminé" : "Suivant";
-}
-
-/* ----------------------------- Events wiring ----------------------------- */
-
-function wireSegmented(controlEl, getKey){
-  controlEl.addEventListener("click", (e)=>{
-    const btn = e.target.closest(".seg");
-    if(!btn) return;
-    const v = btn.dataset.value;
-    state[getKey()] = v;
-    setActiveSeg(controlEl, v);
-
-    // applying defaults can happen after sex is known
-    if(getKey() === "sex" && state.goal){
-      state.proteinPerKg = null;
-      state.fatMinPerKg = null;
-      state.carbMinPerKg = null;
-      state.fiber = null;
-      state.water = null;
-      state.sodium = null;
-      applyAutoDefaultsIfMissing();
-    }
-
-    render();
-  renderDailyChip();
-  });
-}
-
-function wireOptions(containerEl, cb){
-  containerEl.addEventListener("click", (e)=>{
-    const btn = e.target.closest(".option");
-    if(!btn) return;
-    cb(btn);
-    render();
-  renderDailyChip();
-  });
-}
-
-function init(){
-  load();
-
-  // Mobile viewport helper
-  setVh();
-
-  // Macro target bands (configurable via data-t0/data-t1)
-  document.querySelectorAll(".bar[data-t0][data-t1]").forEach(b=>{
-    const t0 = Number(b.dataset.t0) || 0;
-    const t1 = Number(b.dataset.t1) || 100;
-    b.style.setProperty("--t0", String(t0));
-    b.style.setProperty("--t1", String(t1));
-  });
-
-  // Mode
-  els.modeSimple.addEventListener("click", ()=> setMode("simple"));
-  els.modeAdvanced.addEventListener("click", ()=> setMode("advanced"));
-
-  // Step navigation
-  els.backBtn.addEventListener("click", ()=>{
-    showPanel(state.step - 1);
-  });
-  els.nextBtn.addEventListener("click", ()=>{
-    if(state.step === 3){
-      // no-op
-      return;
-    }
-    if(!canGoNext()){
-      // micro shake on panel
-      const panel = $(`.step-panel[data-panel="${state.step}"]`);
-      if(panel && !isReducedMotion()){
-        panel.animate([{transform:"translateX(0)"},{transform:"translateX(-6px)"},{transform:"translateX(6px)"},{transform:"translateX(0)"}], {duration: 220});
-      }
-      return;
-    }
-    showPanel(state.step + 1);
-  });
-
-  els.steps.forEach(stepBtn=>{
-    stepBtn.addEventListener("click", ()=>{
-      const target = Number(stepBtn.dataset.step);
-      // allow going back anytime; going forward requires current step valid
-      if(target > state.step && !canGoNext()) return;
-      showPanel(target);
+  if(mode === "grammar" || mode === "mixed"){
+    const allEx = [];
+    GRAMMAR_UNITS.forEach(u=>{
+      u.exercises.forEach(ex=>allEx.push({ex, unit:u.unit}));
     });
-  });
+    const pick = shuffle(allEx).slice(0, count);
+    pick.forEach(x=>addGrammarQ(x.ex, x.unit));
+  }
 
-  // Inputs
-  wireSegmented(els.sexControl, ()=>"sex");
-  wireSegmented(els.carbProfileControl, ()=>"carbProfile");
+  // For mixed, we might have 2*count; normalize to count by mixing half/half
+  let finalQs = questions;
+  if(mode === "mixed"){
+    const half = Math.floor(count/2);
+    const vocabQs = shuffle(finalQs.filter(q=>q.kind==="vocab")).slice(0, half);
+    const gramQs  = shuffle(finalQs.filter(q=>q.kind==="grammar")).slice(0, count-half);
+    finalQs = shuffle([...vocabQs, ...gramQs]);
+  } else {
+    finalQs = shuffle(finalQs).slice(0, count);
+  }
 
-  const onInput = ()=>{
-    state.age = els.age.value ? Number(els.age.value) : null;
-    state.height = els.height.value ? Number(els.height.value) : null;
-    state.weight = els.weight.value ? Number(els.weight.value) : null;
+  testState = { mode, qs: finalQs, i: 0, score: 0 };
+  renderTestQ();
+}
 
-    // update water default when weight changes (if advanced not manually changed)
-    if(state.goal && state.weight && state.mode === "simple"){
-      // simple recalculates anyway
+function renderTestQ(){
+  const box = $("testQ");
+  if(!testState || testState.qs.length === 0){
+    box.innerHTML = `<div class="notice">Choisis un mode et démarre un test.</div>`;
+    $("testScore").textContent = "—";
+    return;
+  }
+
+  const q = testState.qs[testState.i];
+  $("testScore").textContent = `${testState.score} / ${testState.qs.length} (Q${testState.i+1})`;
+
+  if(q.kind === "vocab"){
+    box.innerHTML = `
+      <div class="tests-q">
+        <div class="meta">${q.unit} · Vocab</div>
+        <div class="question">${escapeHtml(q.prompt)}</div>
+        <input id="testInput" type="text" placeholder="Ta réponse…">
+        <div class="tests-actions">
+          <button class="primary" id="btnCheck">Valider</button>
+          <button class="secondary" id="btnReveal">Voir réponse</button>
+        </div>
+        <div id="testFeedback" class="result"></div>
+      </div>
+    `;
+    $("btnCheck").addEventListener("click", ()=>checkTestAnswer());
+    $("btnReveal").addEventListener("click", ()=>revealTestAnswer());
+    $("testInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") checkTestAnswer(); });
+    $("testInput").focus();
+  } else {
+    if(q.type === "mcq"){
+      box.innerHTML = `
+        <div class="tests-q">
+          <div class="meta">${q.unit} · Grammaire</div>
+          <div class="question">${escapeHtml(q.prompt)}</div>
+          <div class="opts" id="testOpts">
+            ${q.options.map(o=>`
+              <label style="display:flex; gap:10px; align-items:flex-start; margin-bottom:8px;">
+                <input type="radio" name="test_mcq" value="${escapeHtml(o)}" style="margin-top:3px;">
+                <span>${escapeHtml(o)}</span>
+              </label>
+            `).join("")}
+          </div>
+          <div class="tests-actions">
+            <button class="primary" id="btnCheck">Valider</button>
+            <button class="secondary" id="btnReveal">Voir réponse</button>
+          </div>
+          <div id="testFeedback" class="result"></div>
+        </div>
+      `;
+      $("btnCheck").addEventListener("click", ()=>checkTestAnswer());
+      $("btnReveal").addEventListener("click", ()=>revealTestAnswer());
+    } else {
+      box.innerHTML = `
+        <div class="tests-q">
+          <div class="meta">${q.unit} · Grammaire</div>
+          <div class="question">${escapeHtml(q.prompt)}</div>
+          <input id="testInput" type="text" placeholder="Ta réponse…">
+          <div class="tests-actions">
+            <button class="primary" id="btnCheck">Valider</button>
+            <button class="secondary" id="btnReveal">Voir réponse</button>
+          </div>
+          <div id="testFeedback" class="result"></div>
+        </div>
+      `;
+      $("btnCheck").addEventListener("click", ()=>checkTestAnswer());
+      $("btnReveal").addEventListener("click", ()=>revealTestAnswer());
+      $("testInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") checkTestAnswer(); });
+      $("testInput").focus();
     }
-    render();
-  renderDailyChip();
-  };
-  ["input","change"].forEach(evt=>{
-    els.age.addEventListener(evt, onInput);
-    els.height.addEventListener(evt, onInput);
-    els.weight.addEventListener(evt, onInput);
-  });
-
-  // Activity cards
-  wireOptions(els.activityCards, (btn)=>{
-    state.activity = Number(btn.dataset.factor);
-    setSelectedOption(els.activityCards, b => b === btn);
-  });
-
-  // Goal cards
-  wireOptions(els.goalCards, (btn)=>{
-    state.goal = btn.dataset.goal;
-
-    // reset defaults (so they adapt to new goal)
-    state.proteinPerKg = null;
-    state.fatMinPerKg = null;
-    state.carbMinPerKg = null;
-    state.fiber = null;
-    state.water = null;
-    state.sodium = null;
-
-    // pace defaults
-    if(state.goal === "cut") state.pace = clamp(Number(state.pace) || 0.5, 0.10, 1.0);
-    if(state.goal === "bulk") state.pace = clamp(Number(state.pace) || 0.25, 0.10, 0.50);
-
-    // if maintain, pace irrelevant
-    setSelectedOption(els.goalCards, b => b === btn);
-    applyAutoDefaultsIfMissing();
-  });
-
-  // Pace slider
-  els.pace.addEventListener("input", ()=>{
-    state.pace = Number(els.pace.value);
-    els.paceValue.textContent = Number(state.pace).toFixed(2);
-    render();
-  renderDailyChip();
-  });
-
-  // Collapse
-  els.collapseBtn.addEventListener("click", ()=>{
-    if(state.mode === "simple") return;
-    state.advancedOpen = !state.advancedOpen;
-    els.collapse.classList.toggle("open", state.advancedOpen);
-    els.collapseBody.style.display = state.advancedOpen ? "" : "none";
-    save();
-  });
-
-  // Advanced inputs
-  function bindAdv(inputEl, key){
-    inputEl.addEventListener("input", ()=>{
-      const v = Number(inputEl.value);
-      state[key] = Number.isFinite(v) ? v : null;
-      render();
-  renderDailyChip();
-    });
-  }
-  bindAdv(els.proteinPerKg, "proteinPerKg");
-  bindAdv(els.fatMinPerKg, "fatMinPerKg");
-  bindAdv(els.carbMinPerKg, "carbMinPerKg");
-  bindAdv(els.fiber, "fiber");
-  bindAdv(els.water, "water");
-  bindAdv(els.sodium, "sodium");
-
-  // Reset
-  els.resetBtn.addEventListener("click", ()=>{
-    try{ localStorage.removeItem(LS_KEY); }catch(_){}
-    state = {
-      mode: "simple", step: 0,
-      sex: null, age: null, height: null, weight: null,
-      activity: null, goal: null, pace: 0.5,
-      advancedOpen: false,
-      carbProfile: "balanced",
-      proteinPerKg: null, fatMinPerKg: null, carbMinPerKg: null,
-      fiber: null, water: null, sodium: null
-    };
-    lastNumbers = {kcal:null, p:null, f:null, c:null, coh:null};
-    setMode("simple");
-    showPanel(0);
-    render();
-  renderDailyChip();
-  });
-
-  // Mobile bottom sheet toggle
-  els.sheetToggle.addEventListener("click", ()=>{
-    els.resultCard.classList.toggle("expanded");
-    els.sheetToggle.textContent = els.resultCard.classList.contains("expanded") ? "Réduire" : "Détails";
-    updateSheetReserve();
-  });
-
-  // Mobile: swipe handle (up = expand, down = collapse)
-  if(els.sheetHandle){
-    let startY = null;
-    let active = false;
-
-    const isMobileSheet = () => window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
-
-    const onDown = (e) => {
-      if(!isMobileSheet()) return;
-      active = true;
-      startY = e.clientY;
-      try{ els.sheetHandle.setPointerCapture(e.pointerId); }catch(_){/* noop */}
-    };
-    const onMove = (e) => {
-      if(!active || startY === null) return;
-      // optional: tiny visual feedback
-      const dy = e.clientY - startY;
-      els.sheetHandle.style.transform = `translateY(${clamp(dy, -12, 12)}px)`;
-    };
-    const onUp = (e) => {
-      if(!active || startY === null) return;
-      active = false;
-      const dy = e.clientY - startY;
-      startY = null;
-      els.sheetHandle.style.transform = "";
-
-      // Thresholds tuned for thumbs
-      if(dy < -40){
-        els.resultCard.classList.add("expanded");
-      }else if(dy > 40){
-        els.resultCard.classList.remove("expanded");
-      }
-      els.sheetToggle.textContent = els.resultCard.classList.contains("expanded") ? "Réduire" : "Détails";
-      updateSheetReserve();
-    };
-
-    // Pointer events cover mouse + touch
-    els.sheetHandle.addEventListener("pointerdown", onDown);
-    els.sheetHandle.addEventListener("pointermove", onMove);
-    els.sheetHandle.addEventListener("pointerup", onUp);
-    els.sheetHandle.addEventListener("pointercancel", onUp);
-  }
-
-  // Export / Import
-  els.exportBtn.addEventListener("click", ()=>{
-    const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "nutrition-track-settings.json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  });
-
-  els.importBtn.addEventListener("click", ()=> els.importFile.click());
-  els.importFile.addEventListener("change", async ()=>{
-    const file = els.importFile.files && els.importFile.files[0];
-    if(!file) return;
-    try{
-      const txt = await file.text();
-      const obj = JSON.parse(txt);
-      state = {...state, ...obj};
-      // sanitize step/mode
-      state.step = clamp(Number(state.step) || 0, 0, 3);
-      state.mode = (state.mode === "advanced") ? "advanced" : "simple";
-      save();
-      setMode(state.mode);
-      showPanel(state.step);
-      render();
-  renderDailyChip();
-    }catch(e){
-      alert("Import impossible : fichier JSON invalide.");
-    }finally{
-      els.importFile.value = "";
-    }
-  });
-
-  // Tooltips
-  document.addEventListener("click", (e)=>{
-    const info = e.target.closest(".info");
-    if(info){
-      const text = info.getAttribute("data-tip") || "";
-      openTip(info, text);
-      e.stopPropagation();
-      return;
-    }
-  });
-
-
-  // Result actions
-  if(els.scoreBtn && els.scorePopover){
-    els.scoreBtn.addEventListener("click", (e)=>{
-      els.scorePopover.classList.toggle("open");
-      e.stopPropagation();
-    });
-    document.addEventListener("click", (e)=>{
-      if(!els.scorePopover.classList.contains("open")) return;
-      const inside = e.target.closest("#scorePopover") || e.target.closest("#scoreBtn");
-      if(!inside) els.scorePopover.classList.remove("open");
-    });
-  }
-
-  if(els.copyPlanBtn){
-    els.copyPlanBtn.addEventListener("click", async ()=>{
-      const plan = calcPlan();
-      if(!plan){ showToast("Remplis d’abord ton profil"); return; }
-      await copyPlan(plan);
-    });
-  }
-  if(els.sharePlanBtn){
-    els.sharePlanBtn.addEventListener("click", ()=>{
-      const plan = calcPlan();
-      if(!plan){ showToast("Remplis d’abord ton profil"); return; }
-      sharePlanImage(plan);
-    });
-  }
-  if(els.setDailyBtn){
-    els.setDailyBtn.addEventListener("click", ()=>{
-      const plan = calcPlan();
-      if(!plan){ showToast("Remplis d’abord ton profil"); return; }
-      setDailyPlan(plan);
-      renderDailyChip();
-    });
-  }
-
-  // Legal modal
-  if(els.legalMore && els.legalModal){
-    const openLegal = ()=> els.legalModal.classList.add("open");
-    const closeLegal = ()=> els.legalModal.classList.remove("open");
-    els.legalMore.addEventListener("click", openLegal);
-    if(els.legalClose) els.legalClose.addEventListener("click", closeLegal);
-    if(els.legalOk) els.legalOk.addEventListener("click", closeLegal);
-    if(els.legalOverlay) els.legalOverlay.addEventListener("click", closeLegal);
-  }
-
-  // Toast close
-  if(els.toast){
-    els.toast.addEventListener("click", ()=> els.toast.classList.remove("show"));
-  }
-
-  // Tour
-  els.startTourBtn.addEventListener("click", ()=> openTour(true));
-  els.tourOverlay.addEventListener("click", closeTour);
-  els.tourSkip.addEventListener("click", closeTour);
-  els.tourBack.addEventListener("click", ()=>{
-    tourIndex = clamp(tourIndex - 1, 0, tourSteps.length - 1);
-    applyTourStep();
-  });
-  els.tourNext.addEventListener("click", ()=>{
-    if(tourIndex === tourSteps.length - 1){
-      closeTour();
-      return;
-    }
-    tourIndex = clamp(tourIndex + 1, 0, tourSteps.length - 1);
-    applyTourStep();
-  });
-
-  // Initial render
-  setMode(state.mode);
-  showPanel(state.step);
-  render();
-  renderDailyChip();
-
-  // Keep UI responsive to screen changes
-  updateStepMeta();
-  updateSheetReserve();
-  window.addEventListener("resize", ()=>{
-    setVh();
-    updateStepMeta();
-    updateSheetReserve();
-  });
-  window.addEventListener("orientationchange", ()=>{
-    setTimeout(()=>{
-      setVh();
-      updateStepMeta();
-      updateSheetReserve();
-    }, 250);
-  });
-
-  // Auto tour once
-  setTimeout(()=> openTour(false), 450);
-
-  // Service worker
-  if("serviceWorker" in navigator){
-    navigator.serviceWorker.register("./sw.js").catch(()=>{});
   }
 }
 
-init();
+function currentTestUserAnswer(){
+  const q = testState.qs[testState.i];
+  if(q.kind === "vocab" || q.type === "fill"){
+    return ($("testInput").value || "").trim();
+  }
+  // mcq
+  const checked = document.querySelector("input[name='test_mcq']:checked");
+  return checked ? checked.value : "";
+}
+
+function isCorrectTestAnswer(q, user){
+  const u = normalize(user);
+  const a = normalize(q.answer);
+  if(!u) return false;
+  if(u === a) return true;
+  if(q.alts && q.alts.some(x=>normalize(x)===u)) return true;
+  return false;
+}
+
+function checkTestAnswer(){
+  const q = testState.qs[testState.i];
+  const user = currentTestUserAnswer();
+  const ok = isCorrectTestAnswer(q, user);
+
+  const fb = $("testFeedback");
+  if(ok){
+    testState.score++;
+    fb.innerHTML = `<span class="good">✅ Correct</span>`;
+  } else {
+    fb.innerHTML = `<span class="bad">❌</span> Réponse: <b>${escapeHtml(q.answer)}</b>${q.explain ? " — "+escapeHtml(q.explain) : ""}`;
+  }
+
+  // go next after short delay
+  setTimeout(()=>{
+    if(testState.i < testState.qs.length-1){
+      testState.i++;
+      renderTestQ();
+    } else {
+      $("testQ").innerHTML = `<div class="notice">Test terminé ✅ Score: <b>${testState.score} / ${testState.qs.length}</b></div>`;
+      $("testScore").textContent = `${testState.score} / ${testState.qs.length}`;
+    }
+  }, 650);
+}
+
+function revealTestAnswer(){
+  const q = testState.qs[testState.i];
+  const fb = $("testFeedback");
+  fb.innerHTML = `Réponse: <b>${escapeHtml(q.answer)}</b>${q.explain ? " — "+escapeHtml(q.explain) : ""}`;
+}
+
+function initTests(){
+  $("btnStartTest").addEventListener("click", startTest);
+  $("btnRestartTest").addEventListener("click", startTest);
+  renderTestQ();
+}
+
+/* ---------------- Boot ---------------- */
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  initTabs();
+  initVocab();
+  renderGrammar();
+  initTests();
+});
