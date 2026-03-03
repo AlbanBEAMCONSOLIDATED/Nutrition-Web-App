@@ -34,13 +34,26 @@
     <!-- VOCAB -->
     <section id="panel-vocab" class="panel active">
       <div class="controls">
-        <select id="unitFilter" class="control"></select>
-
-        <select id="directionMode" class="control" title="Sens d'apprentissage">
+<select id="directionMode" class="control" title="Sens d'apprentissage">
           <option value="random" selected>Sens : Aléatoire</option>
           <option value="fr_en">Sens : FR → EN</option>
           <option value="en_fr">Sens : EN → FR</option>
         </select>
+
+        <div class="units-box" id="unitsBox" aria-label="Sélection Units">
+          <button class="unit-chip" data-preset="all" type="button">Tout</button>
+          <button class="unit-chip" data-preset="1-3" type="button">1–3</button>
+          <button class="unit-chip" data-preset="4-6" type="button">4–6</button>
+          <button class="unit-chip" data-preset="none" type="button">Aucun</button>
+          <div class="units">
+            <label class="unit"><input type="checkbox" value="Unit 1" checked>U1</label>
+            <label class="unit"><input type="checkbox" value="Unit 2" checked>U2</label>
+            <label class="unit"><input type="checkbox" value="Unit 3" checked>U3</label>
+            <label class="unit"><input type="checkbox" value="Unit 4" checked>U4</label>
+            <label class="unit"><input type="checkbox" value="Unit 5" checked>U5</label>
+            <label class="unit"><input type="checkbox" value="Unit 6" checked>U6</label>
+          </div>
+        </div>
 
         <input id="searchBox" class="control input" placeholder="Recherche (EN ou FR)..." />
 
@@ -105,6 +118,8 @@
     <!-- TEXTS -->
     <section id="panel-texts" class="panel">
       <div class="controls">
+        <select id="textTitleSelect" class="control" title="Choisir un texte"></select>
+
         <select id="textFocus" class="control" title="Focus">
           <option value="mixed" selected>Focus : Mix (vocab + grammaire)</option>
           <option value="vocab">Focus : Vocabulaire</option>
@@ -112,7 +127,8 @@
         </select>
 
         <select id="textUnit" class="control" title="Unit">
-          <option value="ALL" selected>Units : 1–6</option>
+          <option value="SELECTED" selected>Units : sélection (checkbox)</option>
+          <option value="ALL">Units : 1–6</option>
           <option value="Unit 1">Unit 1</option>
           <option value="Unit 2">Unit 2</option>
           <option value="Unit 3">Unit 3</option>
@@ -133,6 +149,11 @@
           Masquer unités (mm, kW, °C…)
         </label>
 
+        <label class="pill" style="cursor:pointer;">
+          <input id="useWordBank" type="checkbox" checked style="accent-color: var(--accent); margin:0 8px 0 0;">
+          Banque de mots
+        </label>
+
         <button id="btnGenText" class="control btn primary">Générer texte à trous</button>
         <button id="btnClearText" class="control btn">Vider</button>
 
@@ -142,6 +163,10 @@
         </label>
 
         <button id="btnExampleText" class="control btn">Exemple</button>
+      </div>
+
+      <div class="small" style="margin-bottom:10px;">
+        Astuce : tu peux charger des textes via <b>datatexte.js</b> (liste de titres). Pour des indices FR plus riches, mets ton dictionnaire dans <b>datadictionary.js</b>.
       </div>
 
       <div class="small" style="margin-bottom:10px;">
@@ -156,6 +181,7 @@
           <button id="btnRevealText" class="control btn">Afficher réponses</button>
           <span class="pill">Score : <span id="textScore">—</span></span>
         </div>
+        <div id="wordBank" class="wordbank" aria-label="Banque de mots"></div>
         <div id="textExercise" class="small"></div>
       </div>
     </section>
@@ -251,6 +277,8 @@
   </main>
 
   <script src="./data.js"></script>
+  <script src="./datatexte.js"></script>
+  <script src="./datadictionary.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

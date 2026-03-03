@@ -538,3 +538,190 @@ button, .btn, .tab, .action, .control, .choice-btn, .link{
 @media (max-width: 640px){
   .cloze .hintfr, .cloze .ghint{ font-size:.78rem; }
 }
+
+
+
+/* ---------------------------------
+   iPhone polish (iOS feel)
+----------------------------------*/
+body{
+  -webkit-tap-highlight-color: transparent;
+}
+
+@supports (-webkit-touch-callout: none){
+  /* iOS grouped background */
+  body{ background:#f2f2f7; }
+  header{
+    background: rgba(255,255,255,.86);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(60,60,67,.18);
+  }
+  header .wrap{ padding-top: calc(12px + env(safe-area-inset-top)); }
+
+  /* Segmented-control tabs */
+  .tabs{
+    background: rgba(255,255,255,.72);
+    border: 1px solid rgba(60,60,67,.18);
+    border-radius: 16px;
+    padding: 6px;
+    gap: 6px;
+  }
+  .tab{
+    border: 0;
+    background: transparent;
+    color: rgba(60,60,67,.78);
+    font-weight: 900;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .tab.active{
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  }
+
+  /* Controls */
+  .control{
+    border-color: rgba(60,60,67,.18);
+    background: rgba(255,255,255,.95);
+  }
+  .control.btn{ background: rgba(255,255,255,.95); }
+  .control.btn.primary{
+    background: rgba(0,122,255,.10);
+    border-color: rgba(0,122,255,.22);
+  }
+  .pill{
+    border-color: rgba(60,60,67,.18);
+    background: rgba(255,255,255,.95);
+  }
+
+  /* Main card container */
+  .card-area{
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .scene{ padding: 10px 0 14px; }
+
+  .card3d{
+    border-radius: 22px;
+    filter: none;
+  }
+  .face{
+    border-color: rgba(60,60,67,.16);
+    box-shadow: 0 14px 38px rgba(0,0,0,.10);
+  }
+
+  /* Buttons */
+  .action{
+    border-color: rgba(60,60,67,.18);
+    background: rgba(255,255,255,.96);
+    box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  }
+  .action.ok{ background: rgba(52,199,89,.10); border-color: rgba(52,199,89,.22); }
+  .action.bad{ background: rgba(255,59,48,.10); border-color: rgba(255,59,48,.22); }
+
+  .unit-badge{
+    border-color: rgba(0,122,255,.20);
+    background: rgba(0,122,255,.08);
+  }
+  .link{ color: rgb(0,122,255); }
+
+  /* Prevent iOS zoom on focus (inputs must be >=16px) */
+  input, select, textarea{ font-size: 16px; }
+}
+
+/* Small micro-interactions */
+.tab, .action, .control.btn{
+  transition: transform .08s ease, filter .12s ease, background .15s ease;
+}
+.tab:active, .action:active, .control.btn:active{
+  transform: scale(0.98);
+}
+
+
+
+/* Units checkboxes */
+.units-box{
+  width:100%;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-top:2px;
+}
+.units{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.unit{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 10px;
+  border:1px solid rgba(60,60,67,.18);
+  background: rgba(255,255,255,.95);
+  border-radius:999px;
+  font-weight:900;
+  color: rgba(60,60,67,.82);
+}
+.unit input{ accent-color: rgb(0,122,255); }
+.unit-chip{
+  border:1px solid rgba(60,60,67,.18);
+  background: rgba(255,255,255,.78);
+  color: rgba(60,60,67,.78);
+  padding:8px 10px;
+  border-radius:999px;
+  font-weight:900;
+  cursor:pointer;
+}
+.unit-chip:active{ transform: scale(0.98); }
+
+@media (max-width: 640px){
+  .units-box{ gap:10px; }
+  .units{ gap:10px; }
+  .unit{ padding:10px 12px; }
+  .unit-chip{ padding:10px 12px; }
+}
+
+
+
+/* Word bank */
+.wordbank{
+  display:none;
+  margin: 10px 0 6px;
+  padding: 10px;
+  border: 1px solid rgba(60,60,67,.18);
+  border-radius: 16px;
+  background: rgba(255,255,255,.85);
+}
+.wordbank .title{
+  font-weight: 1000;
+  color: rgba(60,60,67,.80);
+  margin-bottom: 8px;
+  font-size: .95rem;
+}
+.wordbank .chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.wordbank .chip{
+  border: 1px solid rgba(60,60,67,.18);
+  background: #fff;
+  padding: 8px 10px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-weight: 900;
+  color: rgba(17,24,39,.92);
+  user-select:none;
+}
+.wordbank .chip:active{ transform: scale(.98); }
+
+@media (max-width: 640px){
+  .wordbank{ padding: 10px; }
+  .wordbank .chip{ padding: 10px 12px; }
+}

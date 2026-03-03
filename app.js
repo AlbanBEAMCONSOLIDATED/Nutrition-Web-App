@@ -25,6 +25,30 @@ function primaryFr(fr){
   if(!fr) return "";
   return String(fr).split(";")[0].split(",")[0].trim();
 }
+
+
+function getSelectedUnits(){
+  const box = document.getElementById("unitsBox");
+  if(!box) return new Set(["Unit 1","Unit 2","Unit 3","Unit 4","Unit 5","Unit 6"]);
+  const checks = Array.from(box.querySelectorAll('input[type="checkbox"]'));
+  const selected = checks.filter(c=>c.checked).map(c=>c.value);
+  return new Set(selected.length ? selected : ["Unit 1","Unit 2","Unit 3","Unit 4","Unit 5","Unit 6"]);
+}
+
+function applyUnitPreset(preset){
+  const box = document.getElementById("unitsBox");
+  if(!box) return;
+  const checks = Array.from(box.querySelectorAll('input[type="checkbox"]'));
+  const setChecked = (vals)=>{
+    const s = new Set(vals);
+    checks.forEach(c=> c.checked = s.has(c.value));
+  };
+  if(preset==="all") setChecked(["Unit 1","Unit 2","Unit 3","Unit 4","Unit 5","Unit 6"]);
+  if(preset==="1-3") setChecked(["Unit 1","Unit 2","Unit 3"]);
+  if(preset==="4-6") setChecked(["Unit 4","Unit 5","Unit 6"]);
+  if(preset==="none") checks.forEach(c=> c.checked=false);
+}
+
 function stripArticle(en){
   return String(en||"").replace(/^(a|an|the)\s+/i,"").trim();
 }
@@ -110,21 +134,19 @@ function hydrateUnitSelects(){
     });
   };
 
-  fill($("unitFilter"), true);
-  fill($("dbUnitFilter"), true);
+    fill($("dbUnitFilter"), true);
   fill($("editUnit"), false);
 
-  $("unitFilter").value="ALL";
-  $("dbUnitFilter").value="ALL";
+    $("dbUnitFilter").value="ALL";
   $("editUnit").value=units[0] || "Unit 1";
 }
 
 function setDeckFromFilters(){
-  const u = $("unitFilter").value;
+  const units = getSelectedUnits();
   const q = ($("searchBox").value || "").trim().toLowerCase();
 
   deck = VOCAB.filter(c=>{
-    const okU = (u==="ALL") ? true : (c.unit===u);
+    const okU = units.has(c.unit);
     if(!okU) return false;
     if(!q) return true;
     return String(c.en||"").toLowerCase().includes(q) || String(c.fr||"").toLowerCase().includes(q);
@@ -618,8 +640,7 @@ function initDb(){
 /* -------- UI init -------- */
 function initVocab(){
   $("btnShuffle").addEventListener("click", setDeckFromFilters);
-  $("unitFilter").addEventListener("change", setDeckFromFilters);
-  $("directionMode").addEventListener("change", ()=>{
+    $("directionMode").addEventListener("change", ()=>{
     buildDirections();
     renderCard();
   });
@@ -666,7 +687,65 @@ $("card3d").addEventListener("click", flip);
     if(e.key==="ArrowLeft") prev();
     if(e.key===" "){ e.preventDefault(); flip(); }
   });
+  // Units checkboxes
+  const ub = document.getElementById("unitsBox");
+  if(ub){
+    ub.addEventListener("change", (e)=>{
+      if(e.target && e.target.matches('input[type="checkbox"]')){
+        setDeckFromFilters();
+      }
+    });
+    ub.querySelectorAll(".unit-chip").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        applyUnitPreset(btn.dataset.preset);
+        setDeckFromFilters();
+      });
+    });
+  }
+
 }
+
+
+/* -------- Text library (datatexte.js) -------- */
+function initTextLibrary(){
+  const sel = document.getElementById("textTitleSelect");
+  if(!sel) return;
+  const lib = Array.isArray(window.TEXT_LIBRARY) ? window.TEXT_LIBRARY : [];
+
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = lib.length ? "Choisir un texte…" : "Aucun texte (datatexte.js)";
+  sel.appendChild(opt0);
+
+  lib.forEach(t=>{
+    const o=document.createElement("option");
+    o.value = t.id || t.title;
+    o.textContent = t.title || t.id || "Texte";
+    sel.appendChild(o);
+  });
+
+  sel.addEventListener("change", ()=>{
+    const v = sel.value;
+    if(!v) return;
+    const item = lib.find(x => (x.id||x.title) === v);
+    if(!item) return;
+    const text = item.text || item.content || "";
+    document.getElementById("textSource").value = text;
+    // Optional: auto unit selection
+    const u = item.unit;
+    const unitSel = document.getElementById("textUnit");
+    if(u && unitSel){
+      // do not override if user wants SELECTED
+      // but if the item has a unit and user selected ALL, we can set the unit
+      // keep gentle: set only when unit is valid and current is ALL
+      if(unitSel.value === "ALL"){
+        unitSel.value = u;
+      }
+    }
+  });
+}
+
 
 /* -------- Boot -------- */
 
@@ -763,6 +842,65 @@ function findOccurrences(text, phrase){
   return out;
 }
 
+
+function getDictHints(word){
+  // Optional: datadictionary.js can define window.DICT in one of these shapes:
+  // 1) window.DICT = { "increase": ["hausse","augmentation"] }
+  // 2) window.DICT = { "increase": "hausse; augmentation" }
+  // 3) window.DICT = [ {en:"increase", fr:["hausse"]}, ... ]  (we will build a tiny cache)
+  const D = window.DICT;
+  if(!D) return [];
+  const key = String(word||"").trim();
+  if(!key) return [];
+  const k1 = key;
+  const k2 = key.toLowerCase();
+  try{
+    if(Array.isArray(D)){
+      // build cache once
+      if(!window.__DICT_CACHE){
+        const m = new Map();
+        D.forEach(item=>{
+          if(!item) return;
+          const en = String(item.en||item.EN||"").trim();
+          if(!en) return;
+          let fr = item.fr || item.FR || item.syn || item.synonyms || item.s;
+          let arr = [];
+          if(Array.isArray(fr)) arr = fr;
+          else if(typeof fr === "string") arr = fr.split(/[;,/]/).map(s=>s.trim()).filter(Boolean);
+          if(arr.length) m.set(en.toLowerCase(), arr);
+        });
+        window.__DICT_CACHE = m;
+      }
+      const arr = window.__DICT_CACHE.get(k2);
+      return Array.isArray(arr) ? arr.slice(0,6) : [];
+    }
+
+    if(typeof D === "object"){
+      let v = D[k1] ?? D[k2];
+      if(!v) return [];
+      if(Array.isArray(v)) return v.slice(0,6);
+      if(typeof v === "string") return v.split(/[;,/]/).map(s=>s.trim()).filter(Boolean).slice(0,6);
+    }
+  }catch(e){
+    return [];
+  }
+  return [];
+}
+
+
+
+function normalizeHint(s){
+  return String(s||"").trim().toLowerCase().replace(/[\s\-_/]+/g," ").replace(/[^\w\s]/g,"");
+}
+function chooseUsefulHint(answer, hints){
+  const ansN = normalizeHint(answer);
+  const clean = (hints||[]).map(h=>String(h||"").trim()).filter(Boolean);
+  if(clean.length===0) return "";
+  const useful = clean.filter(h => normalizeHint(h) && normalizeHint(h) !== ansN);
+  if(useful.length) return useful[Math.floor(Math.random()*useful.length)];
+  return clean[Math.floor(Math.random()*clean.length)];
+}
+
 function splitFrenchHints(fr){
   const raw = String(fr||"");
   const parts = raw.split(/[;,/]/).map(s=>s.trim()).filter(Boolean);
@@ -795,7 +933,8 @@ function buildVocabHintMap(){
   const map = new Map(); // lower phrase -> {frHints:[]}
   VOCAB.forEach(c=>{
     const hints = splitFrenchHints(c.fr);
-    const defaultHints = hints.length ? hints : [String(c.fr||"").trim()];
+    const dictHints = getDictHints(c.en) || [];
+    const defaultHints = Array.from(new Set([...(hints.length ? hints : [String(c.fr||"").trim()]), ...dictHints]));
     vocabVariants(c.en).forEach(v=>{
       const k = v.toLowerCase();
       if(!map.has(k)){
@@ -813,15 +952,74 @@ let VOCAB_HINT_MAP = null;
 
 function buildLegend(focus){
   const parts = [];
-  parts.push(`<div class="notice"><b>Consigne :</b> complète les trous en anglais.</div>`);
+  parts.push(`<div class="notice"><b>Consigne :</b> complète les trous en anglais. (50% = dur)</div>`);
+
   if(focus==="vocab" || focus==="mixed"){
-    parts.push(`<div class="notice">• <b>Vocab</b> : indice en français (traduction / synonyme si dispo dans la liste FR).</div>`);
+    parts.push(`<div class="notice">• <b>Vocab</b> : indice FR (sens/définition). Exemple : <i>pressure drop</i> → “perte de charge”.</div>`);
+    parts.push(`<div class="notice">• Si tu as un sigle type <b>RCI</b> et l’indice est identique : ajoute une entrée dans <b>datadictionary.js</b> : <code>"RCI": ["ventilation double flux", "heat recovery unit"]</code>.</div>`);
+    parts.push(`<div class="notice">• Astuce : active <b>Banque de mots</b> → tu as une liste de réponses possibles à taper/coller.</div>`);
   }
+
   if(focus==="grammar" || focus==="mixed"){
-    parts.push(`<div class="notice">• <b>Grammaire</b> : indices → <span class="ghint">+++</span> (plus), <span class="ghint">---</span> (moins), <span class="ghint">≈</span> (approx), <span class="ghint">⇒</span> (conséquence), <span class="ghint">↔</span> (opposition), <span class="ghint">🔁</span> (fréquence), <span class="ghint">⏱</span> (temps).</div>`);
+    parts.push(`<div class="notice"><b>Grammaire – indices :</b></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">+++</span> = plus / more / higher → <i>more efficient than</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">---</span> = moins / less / lower → <i>less noisy than</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">≠</span> = comparaison → pense à <i>than</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">=</span> = égalité → pense à <i>as … as</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">CAUSE</span> → <i>because / due to</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">⇒</span> conséquence → <i>therefore / as a result</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">↔</span> opposition → <i>however / although</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">≈</span> approx → <i>about / roughly / approximately</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">🔁</span> fréquence → <i>usually / always / never</i></div>`);
+    parts.push(`<div class="notice">• <span class="ghint">⏱</span> temps → <i>right now / yesterday</i></div>`);
   }
-  parts.push(`<div class="notice">• <b>Corriger</b> : surligne OK/KO • <b>Afficher réponses</b> : montre les solutions.</div>`);
+
+  parts.push(`<div class="notice">Boutons : <b>Corriger</b> → OK/KO • <b>Afficher réponses</b> → solutions.</div>`);
   return `<div style="margin-bottom:10px;">${parts.join("")}</div>`;
+}
+
+
+function renderWordBank(answers){
+  const wb = document.getElementById("wordBank");
+  const toggle = document.getElementById("useWordBank");
+  if(!wb) return;
+
+  const enabled = !!(toggle && toggle.checked);
+  if(!enabled){
+    wb.style.display = "none";
+    wb.innerHTML = "";
+    return;
+  }
+
+  const uniq = Array.from(new Set((answers||[]).map(a=>String(a||"").trim()).filter(Boolean)));
+  shuffle(uniq);
+  const shown = uniq.slice(0, 60);
+
+  wb.style.display = shown.length ? "block" : "none";
+  wb.innerHTML = `<div class="title">Banque de mots (tap → remplir le trou actif)</div><div class="chips"></div>`;
+  const chips = wb.querySelector(".chips");
+
+  shown.forEach(w=>{
+    const b=document.createElement("div");
+    b.className="chip";
+    b.textContent=w;
+    b.addEventListener("click", ()=>{
+      const active = document.activeElement;
+      if(active && active.tagName==="INPUT" && active.hasAttribute("data-ans")){
+        active.value = w;
+        active.focus();
+        return;
+      }
+      const root = document.getElementById("clozeRoot");
+      if(!root) return;
+      const firstEmpty = Array.from(root.querySelectorAll('input[data-ans]')).find(i=>!(i.value||"").trim());
+      if(firstEmpty){
+        firstEmpty.value = w;
+        firstEmpty.focus();
+      }
+    });
+    chips.appendChild(b);
+  });
 }
 
 function generateCloze(){
@@ -833,6 +1031,7 @@ function generateCloze(){
 
   const focus = $("textFocus").value;
   const unit = $("textUnit").value;
+  const selectedUnits = getSelectedUnits();
   const rate = parseFloat($("blankRate").value || "0.50");
   const blankUnits = $("blankUnits").checked;
 
@@ -875,7 +1074,8 @@ function generateCloze(){
       if(c.type==="vocab"){
         const info = VOCAB_HINT_MAP.get(key);
         const hints = (info && info.frHints && info.frHints.length) ? info.frHints : [];
-        hint = hints.length ? hints[Math.floor(Math.random()*hints.length)] : "FR";
+        hint = chooseUsefulHint(o.value, hints);
+        if(!hint) hint = "FR";
       } else if(c.type==="grammar"){
         hint = grammarHint(key);
       } else if(c.type==="unit"){
@@ -951,6 +1151,10 @@ function generateCloze(){
       hintSpan = `<span class="ghint">${escapeHtml2(o.hint || "•")}</span>`;
     } else if(o.type==="unit"){
       hintSpan = `<span class="ghint">UNIT</span>`;
+    } else if(o.type==="auto"){
+      const dh = getDictHints(ans) || [];
+      const h = chooseUsefulHint(ans, dh);
+      if(h) hintSpan = `<span class="hintfr">${escapeHtml2(h)}</span>`;
     }
 
     const input = `<span class="num">(${idx})</span>` +
@@ -966,6 +1170,10 @@ function generateCloze(){
 
   const legend = buildLegend(focus);
   const clozeHtml = `${legend}<div class="cloze" id="clozeRoot">${parts.join("")}</div>`;
+
+  textState = { answers: chosen.map(x=>source.slice(x.start, x.end)) };
+  renderWordBank(textState.answers);
+
 
   $("textScore").textContent = "—";
   $("textExercise").innerHTML = clozeHtml;
@@ -999,6 +1207,9 @@ function revealCloze(){
 }
 
 function initTexts(){
+  const wbT = document.getElementById("useWordBank");
+  if(wbT){ wbT.addEventListener("change", ()=>{ if(textState && textState.answers) renderWordBank(textState.answers); }); }
+
   $("btnGenText").addEventListener("click", (e)=>{
     e.preventDefault();
     generateCloze();
@@ -1055,6 +1266,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   initVocab();
   initDb();
   initTexts();
+  initTextLibrary();
   initTests();
 
   setDeckFromFilters();
