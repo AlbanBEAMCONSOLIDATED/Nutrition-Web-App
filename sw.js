@@ -1,58 +1,10 @@
-const CACHE_NAME = "nutrition-cache-v10";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.webmanifest"
-];
-
-// Install: cache core assets (ignore failures so SW still installs)
-self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    await Promise.allSettled(
-      ASSETS.map(async (url) => {
-        try{
-          const req = new Request(url, {cache: "reload"});
-          const res = await fetch(req);
-          if(res.ok) await cache.put(req, res.clone());
-        }catch(_){}
-      })
-    );
-    self.skipWaiting();
-  })());
-});
-
-// Activate: cleanup old caches
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k))));
-    self.clients.claim();
-  })());
-});
-
-// Fetch: network-first for same-origin GET, fallback to cache
-self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  const url = new URL(req.url);
-
-  if(req.method !== "GET") return;
-  if(url.origin !== self.location.origin) return;
-
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-
-    try{
-      const res = await fetch(req);
-      if(res && res.ok){
-        cache.put(req, res.clone());
-      }
-      return res;
-    }catch(_){
-      const cached = await cache.match(req);
-      return cached || cache.match("./index.html");
-    }
-  })());
+const CACHE="tb1-cards-v8.5";
+const ASSETS=["./","./index.html","./styles.css","./app.js","./data.js","./datatexte.js","./datadictionary.js","./manifest.json"];
+self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()))});
+self.addEventListener("activate",e=>{e.waitUntil(self.clients.claim())});
+self.addEventListener("fetch",e=>{
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(net=>{
+    if(e.request.method==="GET"){const copy=net.clone();caches.open(CACHE).then(c=>c.put(e.request,copy)).catch(()=>{})}
+    return net;
+  }).catch(()=>r)));
 });

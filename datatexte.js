@@ -1,8 +1,7 @@
-// datatexte.js (fix pour l'app Flashcards)
-// IMPORTANT : ce fichier doit être un script classique (pas de 'export').
-// L'app lit: window.TEXT_LIBRARY = [...].
+// datatexte.js (compatible app)
+// IMPORTANT: pas de 'export'.
+// L'app lit window.TEXT_LIBRARY (ou window.TEXTS).
 
-// Source original: TB1 - English Units 1-6 (course handout)
 window.TEXT_LIBRARY = [
   {
     "id": "tb1_unit1_blackfriars_station_solar_bridge",
@@ -177,5 +176,5 @@ window.TEXT_LIBRARY = [
   }
 ];
 
-// (optionnel) alias
+// alias toléré
 window.TEXTS = window.TEXT_LIBRARY;

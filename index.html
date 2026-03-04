@@ -8,13 +8,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>TB1 Flashcards – Minimal</title>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#f2f2f7" />
 </head>
 <body>
   <header>
     <div class="wrap">
       <div class="brand">
         <div>
-          <h1>TB1 Flashcards (Units 1–6)</h1>
+          <h1 class="app-title">TB1 Flashcards</h1>
           <div class="meta">Vocab + Grammaire + Tests + Base de données locale (CRUD)</div>
         </div>
         <div class="pill" id="globalCount">—</div>
@@ -105,7 +107,21 @@
           <button id="btnNext" class="action">▶</button>
         </div>
 
+        <div class="quickbar" aria-label="Actions rapides">
+          <button id="btnLike" class="qbtn" type="button">⭐ Like</button>
+          <span class="qmeta">Vus : <b id="seenCount">0</b> • Likés : <b id="likedCount">0</b></span>
+          <button id="btnTestSeen" class="qbtn" type="button">Test vus</button>
+          <button id="btnTestLiked" class="qbtn" type="button">Test likés</button>
+        </div>
+
         <div class="hint" id="hint">Clique sur la carte pour la retourner</div>
+      </div>
+
+      <div id="bottomBar" class="bottom-bar" aria-label="Barre d’actions">
+        <button id="bbPrev" class="bb-btn" type="button">◀</button>
+        <button id="bbFlip" class="bb-btn bb-primary" type="button">Flip</button>
+        <button id="bbNext" class="bb-btn" type="button">▶</button>
+        <button id="bbLike" class="bb-btn" type="button">☆</button>
       </div>
     </section>
 
@@ -274,11 +290,13 @@
         </div>
       </div>
     </section>
-  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</main>
 
   <script src="./data.js"></script>
   <script src="./datatexte.js"></script>
   <script src="./datadictionary.js"></script>
+  <script src="./phrasedata.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

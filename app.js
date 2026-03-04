@@ -5,7 +5,9 @@
 
 const LS_KEYS = {
   vocab: "tb1_vocab_min_v1",
-  theme: "tb1_theme_min_v1"
+  theme: "tb1_theme_min_v1",
+  seen: "tb1_seen_ids_v1",
+  liked: "tb1_liked_ids_v1"
 };
 
 function $(id){ return document.getElementById(id); }
@@ -54,33 +56,64 @@ function stripArticle(en){
 }
 function isVerb(en){ return /^to\s+/i.test(String(en||"").trim()); }
 
+function normalizeTerm(s){
+  return String(s||"").toLowerCase().trim();
+}
+function baseForms(en){
+  const s = String(en||"").trim();
+  if(/^to\s+/i.test(s)){
+    const v = s.replace(/^to\s+/i,"").trim();
+    return [v, v+"s", v+"ed", v+"ing"].map(x=>x.toLowerCase());
+  }
+  // simple plural
+  const low = s.toLowerCase();
+  const out = new Set([low]);
+  if(/^[a-z][a-z-]*$/i.test(s) && !low.endsWith("s")) out.add(low+"s");
+  return Array.from(out);
+}
+function findContextSentences(card){
+  const lib = Array.isArray(window.PHRASE_LIBRARY) ? window.PHRASE_LIBRARY : [];
+  if(!lib.length) return [];
+  const forms = baseForms(card.en);
+  const unit = card.unit;
+  const scored = [];
+  for(const it of lib){
+    const txt = (it.en||"").toLowerCase();
+    let score = 0;
+    if(it.unit === unit) score += 2;
+    for(const f of forms){
+      // word boundary-ish
+      if(new RegExp("\\b" + f.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&") + "\\b","i").test(txt)) score += 4;
+      if(txt.includes(f)) score += 1;
+    }
+    // tags
+    if(Array.isArray(it.tags)){
+      for(const f of forms){
+        if(it.tags.map(t=>String(t).toLowerCase()).includes(f)) score += 2;
+      }
+    }
+    if(score>0) scored.push([score, it]);
+  }
+  scored.sort((a,b)=>b[0]-a[0]);
+  // take top 12 then randomize a bit
+  const top = scored.slice(0, 12).map(x=>x[1]);
+  // shuffle top
+  for(let i=top.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [top[i],top[j]]=[top[j],top[i]];
+  }
+  return top.slice(0, 2);
+}
 function makeExamples(card){
-  const en = String(card.en||"").trim();
-  const fr0 = primaryFr(card.fr);
-  const noun = stripArticle(en);
-
-  if(isVerb(en)){
-    const v = en.replace(/^to\s+/i,"").trim();
-    return [
-      { en: `On site, we often need to ${v} the system to meet the specification.`,
-        fr: `Sur site, on doit souvent ${fr0} le système pour respecter les exigences.` },
-      { en: `Before handover, the contractor had to ${v} and document the procedure.`,
-        fr: `Avant la réception, l’entreprise a dû ${fr0} et documenter la procédure.` },
-    ];
+  const picked = findContextSentences(card);
+  if(picked.length>=2){
+    return picked.map(p=>({en:p.en, fr:p.fr}));
   }
-  if(/(able|ous|ive|al|ic|ant|ent|ful|less|ly)$/i.test(en)){
-    return [
-      { en: `Accurate reporting requires the data to be ${en} and traceable.`,
-        fr: `Un rapport fiable exige des données ${fr0} et traçables.` },
-      { en: `During commissioning, we check that the system remains ${en} under normal conditions.`,
-        fr: `Lors de la mise en service, on vérifie que le système reste ${fr0} en conditions normales.` },
-    ];
-  }
+  // fallback: dictionary hint only
+  const hint = (getDictHints(card.en)||[])[0] || primaryFr(card.fr) || "";
   return [
-    { en: `The ${noun} must be specified in the technical report and BIM model.`,
-      fr: `Le/la ${fr0} doit être indiqué(e) dans le rapport technique et la maquette BIM.` },
-    { en: `During commissioning, we verified the ${noun} on site and recorded the results.`,
-      fr: `Lors de la mise en service, on a vérifié le/la ${fr0} sur site et consigné les résultats.` },
+    {en:`(Context not found) ${card.en}`, fr: hint ? `Indice : ${hint}` : ""},
+    {en:`(Tip) Add a sentence to phrasedata.js containing “${card.en}”.`, fr:"(Astuce) Ajoute une phrase dans phrasedata.js."}
   ];
 }
 
@@ -97,12 +130,44 @@ function saveVocab(cards){
   localStorage.setItem(LS_KEYS.vocab, JSON.stringify(cards));
 }
 
+function loadIdSet(key){
+  const raw = localStorage.getItem(key);
+  if(!raw) return new Set();
+  try{
+    const arr = JSON.parse(raw);
+    if(Array.isArray(arr)) return new Set(arr.map(String));
+  }catch(e){}
+  return new Set();
+}
+function saveIdSet(key, setObj){
+  try{
+    localStorage.setItem(key, JSON.stringify(Array.from(setObj)));
+  }catch(e){}
+}
+function updateQuickCounts(){
+  const s = document.getElementById("seenCount");
+  const l = document.getElementById("likedCount");
+  if(s) s.textContent = String(SEEN.size);
+  if(l) l.textContent = String(LIKED.size);
+  const likeBtn = document.getElementById("btnLike");
+  if(likeBtn && deck.length){
+    const id = deck[current]?.id;
+    const on = id && LIKED.has(String(id));
+    likeBtn.textContent = on ? "⭐ Liké" : "⭐ Like";
+  }
+}
+
+
+
 /* -------- App state -------- */
 let VOCAB = [];
 let deck = [];
 let dir = [];
 let current = 0;
 let flipped = false;
+
+let SEEN = new Set();
+let LIKED = new Set();
 
 function buildDirections(){
   const mode = $("directionMode").value;
@@ -180,6 +245,12 @@ function renderCard(){
   $("backWord").textContent = backText;
   $("unitBadge").textContent = c.unit || "—";
 
+  // mark as seen
+  if(c && c.id){
+    SEEN.add(String(c.id));
+    saveIdSet(LS_KEYS.seen, SEEN);
+  }
+
   const ex = makeExamples(c);
   $("examplesEn").innerHTML = `• ${ex[0].en}<br>• ${ex[1].en}`;
   $("examplesFr").innerHTML = `• ${ex[0].fr}<br>• ${ex[1].fr}`;
@@ -191,6 +262,7 @@ function renderCard(){
   $("progressText").textContent = `${current+1} / ${deck.length}`;
   $("progressBar").style.width = `${((current+1)/deck.length)*100}%`;
   $("globalCount").textContent = `${VOCAB.length} cartes`;
+  updateQuickCounts();
 }
 
 function flip(){
@@ -208,6 +280,50 @@ function prev(){
   current = (current-1 + deck.length) % deck.length;
   renderCard();
 }
+
+
+function getVocabPool(scope){
+  const units = getSelectedUnits();
+  let pool = VOCAB.filter(c=>units.has(c.unit));
+  if(scope==="seen"){
+    pool = pool.filter(c=>SEEN.has(String(c.id)));
+  } else if(scope==="liked"){
+    pool = pool.filter(c=>LIKED.has(String(c.id)));
+  }
+  return pool;
+}
+
+function startQuickVocabTest(scope){
+  const pool = getVocabPool(scope);
+  if(pool.length === 0){
+    alert(scope==="liked" ? "Aucun mot liké dans cette sélection d'units." : "Aucun mot vu dans cette sélection d'units.");
+    return;
+  }
+  const count = Math.min(20, pool.length);
+  const questions = pickRandom(pool, count).map(card=>{
+    const d = Math.random()<0.5 ? "fr_en" : "en_fr";
+    return {
+      type:"vocab",
+      prompt: d==="fr_en" ? card.fr : card.en,
+      answer: d==="fr_en" ? card.en : card.fr
+    };
+  });
+  testState = {mode:"vocab", questions, correct:0};
+  setTab("tests");
+  renderTest();
+}
+
+function toggleLikeCurrent(){
+  if(deck.length===0) return;
+  const id = deck[current]?.id;
+  if(!id) return;
+  const sid = String(id);
+  if(LIKED.has(sid)) LIKED.delete(sid);
+  else LIKED.add(sid);
+  saveIdSet(LS_KEYS.liked, LIKED);
+  updateQuickCounts();
+}
+
 
 /* -------- Tabs -------- */
 function setTab(name){
@@ -639,6 +755,18 @@ function initDb(){
 
 /* -------- UI init -------- */
 function initVocab(){
+
+  // Bottom bar (mobile)
+  const bbPrev = document.getElementById("bbPrev");
+  const bbFlip = document.getElementById("bbFlip");
+  const bbNext = document.getElementById("bbNext");
+  const bbLike = document.getElementById("bbLike");
+  if(bbPrev) bbPrev.addEventListener("click", (e)=>{ e.preventDefault(); prev(); });
+  if(bbNext) bbNext.addEventListener("click", (e)=>{ e.preventDefault(); next(); });
+  if(bbFlip) bbFlip.addEventListener("click", (e)=>{ e.preventDefault(); flip(); });
+  if(bbLike) bbLike.addEventListener("click", (e)=>{ e.preventDefault(); toggleLikeCurrent(); showToast("⭐ ajouté / retiré"); });
+
+
   $("btnShuffle").addEventListener("click", setDeckFromFilters);
     $("directionMode").addEventListener("change", ()=>{
     buildDirections();
@@ -655,7 +783,18 @@ function initVocab(){
   $("btnYes").addEventListener("click", next);
   $("btnNo").addEventListener("click", next);
 
-  $("btnToggleTr").addEventListener("click", (e)=>{
+  
+  // Quick bar
+  const likeBtn = document.getElementById("btnLike");
+  if(likeBtn) likeBtn.addEventListener("click", (e)=>{ e.preventDefault(); toggleLikeCurrent(); });
+
+  const ts = document.getElementById("btnTestSeen");
+  if(ts) ts.addEventListener("click", (e)=>{ e.preventDefault(); startQuickVocabTest("seen"); });
+
+  const tl = document.getElementById("btnTestLiked");
+  if(tl) tl.addEventListener("click", (e)=>{ e.preventDefault(); startQuickVocabTest("liked"); });
+
+$("btnToggleTr").addEventListener("click", (e)=>{
     e.preventDefault();
     e.stopPropagation();
     const el=$("examplesFr");
@@ -710,7 +849,14 @@ $("card3d").addEventListener("click", flip);
 function initTextLibrary(){
   const sel = document.getElementById("textTitleSelect");
   if(!sel) return;
-  const lib = Array.isArray(window.TEXT_LIBRARY) ? window.TEXT_LIBRARY : [];
+
+  // Accept multiple possible globals
+  // Preferred: window.TEXT_LIBRARY = [{id,title,text,...}]
+  // Also accepted: window.TEXTS, window.TEXTS_LIBRARY
+  const lib =
+    (Array.isArray(window.TEXT_LIBRARY) ? window.TEXT_LIBRARY :
+    (Array.isArray(window.TEXTS) ? window.TEXTS :
+    (Array.isArray(window.TEXTS_LIBRARY) ? window.TEXTS_LIBRARY : [])));
 
   sel.innerHTML = "";
   const opt0 = document.createElement("option");
@@ -718,32 +864,46 @@ function initTextLibrary(){
   opt0.textContent = lib.length ? "Choisir un texte…" : "Aucun texte (datatexte.js)";
   sel.appendChild(opt0);
 
-  lib.forEach(t=>{
+  lib.forEach((t, i)=>{
     const o=document.createElement("option");
-    o.value = t.id || t.title;
-    o.textContent = t.title || t.id || "Texte";
+    const key = t.id || t.key || t.title || ("text_"+i);
+    o.value = key;
+    o.textContent = t.title || t.name || key;
     sel.appendChild(o);
   });
+
+  function loadByKey(key){
+    const item = lib.find((x, i)=> (x.id||x.key||x.title||("text_"+i)) === key);
+    if(!item) return;
+    const text = item.text || item.content || item.body || "";
+    const box = document.getElementById("textSource");
+    if(box) box.value = text;
+
+    // Optional unit hint
+    const u = item.unit;
+    const unitSel = document.getElementById("textUnit");
+    if(u && unitSel && unitSel.value === "ALL"){
+      unitSel.value = u;
+    }
+    if(typeof showToast === "function") showToast("Texte chargé");
+  }
 
   sel.addEventListener("change", ()=>{
     const v = sel.value;
     if(!v) return;
-    const item = lib.find(x => (x.id||x.title) === v);
-    if(!item) return;
-    const text = item.text || item.content || "";
-    document.getElementById("textSource").value = text;
-    // Optional: auto unit selection
-    const u = item.unit;
-    const unitSel = document.getElementById("textUnit");
-    if(u && unitSel){
-      // do not override if user wants SELECTED
-      // but if the item has a unit and user selected ALL, we can set the unit
-      // keep gentle: set only when unit is valid and current is ALL
-      if(unitSel.value === "ALL"){
-        unitSel.value = u;
-      }
-    }
+    loadByKey(v);
   });
+
+  // Auto-load first text once (quality of life)
+  if(lib.length){
+    // keep user's current text if any
+    const box = document.getElementById("textSource");
+    if(box && !box.value.trim()){
+      const key = lib[0].id || lib[0].key || lib[0].title || "text_0";
+      sel.value = key;
+      loadByKey(key);
+    }
+  }
 }
 
 
@@ -844,19 +1004,27 @@ function findOccurrences(text, phrase){
 
 
 function getDictHints(word){
-  // Optional: datadictionary.js can define window.DICT in one of these shapes:
-  // 1) window.DICT = { "increase": ["hausse","augmentation"] }
-  // 2) window.DICT = { "increase": "hausse; augmentation" }
-  // 3) window.DICT = [ {en:"increase", fr:["hausse"]}, ... ]  (we will build a tiny cache)
+  // Preferred: datadictionary_APP_OK.js exposes window.DICT_LOOKUP(query) -> {fr:[...]}
+  // Fallback: window.DICT (object / array)
+  const q = String(word||"").trim();
+  if(!q) return [];
+
+  // 1) Fast path: lookup function
+  const lk = window.DICT_LOOKUP;
+  if(typeof lk === "function"){
+    try{
+      const r = lk(q);
+      if(r && Array.isArray(r.fr) && r.fr.length) return r.fr.slice(0,6);
+    }catch(e){}
+  }
+
+  // 2) Previous formats
   const D = window.DICT;
   if(!D) return [];
-  const key = String(word||"").trim();
-  if(!key) return [];
-  const k1 = key;
-  const k2 = key.toLowerCase();
+  const k1 = q;
+  const k2 = q.toLowerCase();
   try{
     if(Array.isArray(D)){
-      // build cache once
       if(!window.__DICT_CACHE){
         const m = new Map();
         D.forEach(item=>{
@@ -876,6 +1044,11 @@ function getDictHints(word){
     }
 
     if(typeof D === "object"){
+      // our wrapper shape supports _lookup()
+      if(typeof D._lookup === "function"){
+        const arr = D._lookup(q);
+        return Array.isArray(arr) ? arr.slice(0,6) : [];
+      }
       let v = D[k1] ?? D[k2];
       if(!v) return [];
       if(Array.isArray(v)) return v.slice(0,6);
@@ -1246,6 +1419,10 @@ function initTexts(){
 
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  // Load progress
+  SEEN = loadIdSet(LS_KEYS.seen);
+  LIKED = loadIdSet(LS_KEYS.liked);
+
   // If user has no saved vocab yet, store defaults so CRUD works
   const stored = loadVocab();
   if(!stored){
@@ -1273,4 +1450,18 @@ window.addEventListener("DOMContentLoaded", ()=>{
   renderDbTable();
 
   $("globalCount").textContent = `${VOCAB.length} cartes`;
+  updateQuickCounts();
+
+  // Offline
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  }
 });
+function showToast(msg){
+  const t = document.getElementById("toast");
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=> t.classList.remove("show"), 1200);
+}
