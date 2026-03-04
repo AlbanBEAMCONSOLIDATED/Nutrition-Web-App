@@ -1,7 +1,14 @@
 /*
-  TB1 Flashcards – Minimal
-  Important: works when opened directly (file://) because data is embedded in data.js
+  TB1 Flashcards – App
+  Safe loader build (fix)
 */
+
+function showError(msg){
+  const b = document.getElementById("errorBanner");
+  if(!b) return;
+  b.style.display = "block";
+  b.textContent = msg;
+}
 
 const LS_KEYS = {
   vocab: "tb1_vocab_min_v1",
@@ -12,6 +19,28 @@ const LS_KEYS = {
 };
 
 function $(id){ return document.getElementById(id); }
+
+async function loadOptionalScript(src){
+  return new Promise((resolve)=>{
+    const s=document.createElement("script");
+    s.src=src;
+    s.onload=()=>resolve({ok:true});
+    s.onerror=()=>resolve({ok:false});
+    document.head.appendChild(s);
+  });
+}
+async function bootOptionalLibraries(){
+  // Load user-provided files WITHOUT breaking the app if they contain syntax errors.
+  // (If they have 'export', loading as classic script will fail but the app stays alive.)
+  const r1 = await loadOptionalScript("./datatexte.js");
+  const r2 = await loadOptionalScript("./datadictionary.js");
+  // Init text library after load attempt
+  if(typeof initTextLibrary==="function") initTextLibrary();
+  // Notify
+  if(!r1.ok) showError("datatexte.js non chargé (ou erreur). Les textes n’apparaîtront pas.");
+  if(!r2.ok) showError("datadictionary.js non chargé (ou erreur). Les indices synonymes seront désactivés.");
+}
+
 function $$ (sel){ return Array.from(document.querySelectorAll(sel)); }
 
 function shuffle(arr){
@@ -146,8 +175,8 @@ function saveIdSet(key, setObj){
   }catch(e){}
 }
 
-function nowDay(){
-  return Math.floor(Date.now() / 86400000);
+function nowTs(){
+  return Date.now();
 }
 function loadSRS(){
   const raw = localStorage.getItem(LS_KEYS.srs);
@@ -163,37 +192,67 @@ function saveSRS(){
 function ensureSRS(id){
   const sid = String(id);
   if(!SRS[sid]){
-    SRS[sid] = {box:0, due: nowDay(), reps:0};
+    // box 0 = new, due now
+    SRS[sid] = {box:0, due: nowTs(), reps:0, lapses:0};
   }
   return SRS[sid];
 }
-const BOX_INTERVAL = [0, 1, 3, 7, 14, 30];
+
+// Spacing schedule (ms): minutes/hours first, then days
+const BOX_INTERVAL_MS = [
+  10*60*1000,        // 0: 10 min
+  60*60*1000,        // 1: 1 hour
+  6*60*60*1000,      // 2: 6 hours
+  24*60*60*1000,     // 3: 1 day
+  3*24*60*60*1000,   // 4: 3 days
+  7*24*60*60*1000,   // 5: 7 days
+  14*24*60*60*1000,  // 6: 14 days
+  30*24*60*60*1000   // 7: 30 days
+];
+
 function gradeCard(id, known){
   const s = ensureSRS(id);
   s.reps = (s.reps||0) + 1;
+
   if(known){
-    s.box = Math.min(5, (s.box||0) + 1);
+    s.box = Math.min(7, (s.box||0) + 1);
   } else {
+    s.lapses = (s.lapses||0) + 1;
     s.box = 0;
   }
-  const interval = BOX_INTERVAL[s.box] ?? 0;
-  s.due = nowDay() + interval;
+
+  const interval = BOX_INTERVAL_MS[s.box] ?? (10*60*1000);
+  s.due = nowTs() + interval;
+
   SRS[String(id)] = s;
   saveSRS();
 }
+
 function isDue(id){
   const s = ensureSRS(id);
-  return (s.due ?? nowDay()) <= nowDay();
+  return (s.due ?? nowTs()) <= nowTs();
 }
+
 function srsStatsForPool(pool){
   let due=0, learn=0;
   for(const c of pool){
     const s = ensureSRS(c.id);
-    if((s.due ?? nowDay()) <= nowDay()) due++;
+    if((s.due ?? nowTs()) <= nowTs()) due++;
     if((s.box ?? 0) === 0) learn++;
   }
   return {due, learn, total: pool.length};
 }
+
+function formatDueMs(ms){
+  if(ms <= 0) return "maintenant";
+  const min = Math.round(ms/60000);
+  if(min < 60) return `${min} min`;
+  const h = Math.round(min/60);
+  if(h < 48) return `${h} h`;
+  const d = Math.round(h/24);
+  return `${d} j`;
+}
+
 
 function updateQuickCounts(){
   const s = document.getElementById("seenCount");
@@ -332,6 +391,9 @@ function renderCard(){
   $("progressBar").style.width = `${((current+1)/deck.length)*100}%`;
   $("globalCount").textContent = `${VOCAB.length} cartes`;
   updateQuickCounts();
+
+  // Optional user libraries
+  bootOptionalLibraries();
 }
 
 function flip(){
@@ -387,6 +449,27 @@ function toggleLikeCurrent(){
   else LIKED.add(sid);
   saveIdSet(LS_KEYS.liked, LIKED);
   updateQuickCounts();
+
+  // Optional user libraries
+  bootOptionalLibraries();
+}
+
+
+
+function startRevisionSession(){
+  const units = getSelectedUnits();
+  const pool = VOCAB.filter(c=>units.has(c.unit));
+  const dueCards = pool.filter(c=>isDue(c.id));
+  if(!dueCards.length){
+    alert("Rien à réviser pour le moment (0 mot dû).");
+    return;
+  }
+  deck = [...dueCards];
+  shuffle(deck);
+  current = 0;
+  buildDirections();
+  renderCard();
+  if(typeof showToast==="function") showToast("Session révision : mots dû");
 }
 
 
@@ -853,12 +936,12 @@ function initVocab(){
 
   $("btnYes").addEventListener("click", ()=>{
     if(deck.length && deck[current]?.id){ gradeCard(deck[current].id, true); }
-    if(typeof showToast==="function") showToast("✅ Noté : connu");
+    if(typeof showToast==="function"){ const s=ensureSRS(deck[current].id); showToast("✅ Connu • prochain : " + formatDueMs((s.due-nowTs()))); }
     next();
   });
   $("btnNo").addEventListener("click", ()=>{
     if(deck.length && deck[current]?.id){ gradeCard(deck[current].id, false); }
-    if(typeof showToast==="function") showToast("🔁 Noté : à revoir");
+    if(typeof showToast==="function"){ const s=ensureSRS(deck[current].id); showToast("🔁 À revoir • prochain : " + formatDueMs((s.due-nowTs()))); }
     if(deck.length>2){
       const c = deck.splice(current,1)[0];
       const insertAt = Math.min(deck.length, current + 5);
@@ -877,6 +960,9 @@ function initVocab(){
 
   const tl = document.getElementById("btnTestLiked");
   if(tl) tl.addEventListener("click", (e)=>{ e.preventDefault(); startQuickVocabTest("liked"); });
+
+  const br = document.getElementById("btnRevSession");
+  if(br) br.addEventListener("click", (e)=>{ e.preventDefault(); startRevisionSession(); });
 
 $("btnToggleTr").addEventListener("click", (e)=>{
     e.preventDefault();
@@ -1503,10 +1589,16 @@ function initTexts(){
 
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  try{
   // Load progress
   SEEN = loadIdSet(LS_KEYS.seen);
   LIKED = loadIdSet(LS_KEYS.liked);
   SRS = loadSRS();
+
+  // Sanity check
+  if(!Array.isArray(DEFAULT_VOCAB) || DEFAULT_VOCAB.length===0){
+    showError("Aucune donnée vocab (data.js non chargé). Vérifie que data.js est bien dans le dossier et que tu ouvres index.html depuis le même dossier.");
+  }
 
   // If user has no saved vocab yet, store defaults so CRUD works
   const stored = loadVocab();
@@ -1528,7 +1620,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   initVocab();
   initDb();
   initTexts();
-  initTextLibrary();
+  // initTextLibrary will be called after optional script load
   initTests();
 
   setDeckFromFilters();
@@ -1537,9 +1629,13 @@ window.addEventListener("DOMContentLoaded", ()=>{
   $("globalCount").textContent = `${VOCAB.length} cartes`;
   updateQuickCounts();
 
-  // Offline
-  if("serviceWorker" in navigator){
-    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  // Optional user libraries
+  bootOptionalLibraries();
+
+  // Offline disabled (avoid cache issues)
+  }catch(e){
+    console.error(e);
+    showError("Erreur JS: " + (e && e.message ? e.message : e));
   }
 });
 function showToast(msg){
