@@ -109,7 +109,11 @@
 
         <div class="quickbar" aria-label="Actions rapides">
           <button id="btnLike" class="qbtn" type="button">⭐ Like</button>
-          <span class="qmeta">Vus : <b id="seenCount">0</b> • Likés : <b id="likedCount">0</b></span>
+          <span class="qmeta">Vus : <b id="seenCount">0</b> • Likés : <b id="likedCount">0</b> • À revoir : <b id="dueCount">0</b></span>
+          <label class="qmeta" style="display:flex;align-items:center;gap:8px;">
+            <input id="srsMode" type="checkbox" checked style="accent-color: var(--accent);">
+            Mode répétition
+          </label>
           <button id="btnTestSeen" class="qbtn" type="button">Test vus</button>
           <button id="btnTestLiked" class="qbtn" type="button">Test likés</button>
         </div>

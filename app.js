@@ -7,7 +7,8 @@ const LS_KEYS = {
   vocab: "tb1_vocab_min_v1",
   theme: "tb1_theme_min_v1",
   seen: "tb1_seen_ids_v1",
-  liked: "tb1_liked_ids_v1"
+  liked: "tb1_liked_ids_v1",
+  srs: "tb1_srs_state_v1"
 };
 
 function $(id){ return document.getElementById(id); }
@@ -144,11 +145,68 @@ function saveIdSet(key, setObj){
     localStorage.setItem(key, JSON.stringify(Array.from(setObj)));
   }catch(e){}
 }
+
+function nowDay(){
+  return Math.floor(Date.now() / 86400000);
+}
+function loadSRS(){
+  const raw = localStorage.getItem(LS_KEYS.srs);
+  if(!raw) return {};
+  try{
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === "object") ? obj : {};
+  }catch(e){ return {}; }
+}
+function saveSRS(){
+  try{ localStorage.setItem(LS_KEYS.srs, JSON.stringify(SRS)); }catch(e){}
+}
+function ensureSRS(id){
+  const sid = String(id);
+  if(!SRS[sid]){
+    SRS[sid] = {box:0, due: nowDay(), reps:0};
+  }
+  return SRS[sid];
+}
+const BOX_INTERVAL = [0, 1, 3, 7, 14, 30];
+function gradeCard(id, known){
+  const s = ensureSRS(id);
+  s.reps = (s.reps||0) + 1;
+  if(known){
+    s.box = Math.min(5, (s.box||0) + 1);
+  } else {
+    s.box = 0;
+  }
+  const interval = BOX_INTERVAL[s.box] ?? 0;
+  s.due = nowDay() + interval;
+  SRS[String(id)] = s;
+  saveSRS();
+}
+function isDue(id){
+  const s = ensureSRS(id);
+  return (s.due ?? nowDay()) <= nowDay();
+}
+function srsStatsForPool(pool){
+  let due=0, learn=0;
+  for(const c of pool){
+    const s = ensureSRS(c.id);
+    if((s.due ?? nowDay()) <= nowDay()) due++;
+    if((s.box ?? 0) === 0) learn++;
+  }
+  return {due, learn, total: pool.length};
+}
+
 function updateQuickCounts(){
   const s = document.getElementById("seenCount");
   const l = document.getElementById("likedCount");
+  const d = document.getElementById("dueCount");
   if(s) s.textContent = String(SEEN.size);
   if(l) l.textContent = String(LIKED.size);
+  if(d){
+    const units = getSelectedUnits();
+    const pool = VOCAB.filter(c=>units.has(c.unit));
+    const stats = srsStatsForPool(pool);
+    d.textContent = String(stats.due);
+  }
   const likeBtn = document.getElementById("btnLike");
   if(likeBtn && deck.length){
     const id = deck[current]?.id;
@@ -168,6 +226,7 @@ let flipped = false;
 
 let SEEN = new Set();
 let LIKED = new Set();
+let SRS = {}; // id -> {box, due, reps}
 
 function buildDirections(){
   const mode = $("directionMode").value;
@@ -218,7 +277,17 @@ function setDeckFromFilters(){
   });
 
   if(deck.length===0) deck = [...VOCAB];
-  shuffle(deck);
+
+  const srsToggle = document.getElementById("srsMode");
+  const srsOn = !srsToggle || srsToggle.checked;
+  if(srsOn){
+    const due = deck.filter(c=>isDue(c.id));
+    const later = deck.filter(c=>!isDue(c.id));
+    shuffle(due); shuffle(later);
+    deck = due.concat(later);
+  } else {
+    shuffle(deck);
+  }
   current = 0;
   buildDirections();
   renderCard();
@@ -302,11 +371,7 @@ function startQuickVocabTest(scope){
   const count = Math.min(20, pool.length);
   const questions = pickRandom(pool, count).map(card=>{
     const d = Math.random()<0.5 ? "fr_en" : "en_fr";
-    return {
-      type:"vocab",
-      prompt: d==="fr_en" ? card.fr : card.en,
-      answer: d==="fr_en" ? card.en : card.fr
-    };
+    return {type:"vocab", prompt: d==="fr_en" ? card.fr : card.en, answer: d==="fr_en" ? card.en : card.fr, id: card.id};
   });
   testState = {mode:"vocab", questions, correct:0};
   setTab("tests");
@@ -507,6 +572,7 @@ function renderTest(){
         const ok = val===exp;
         if(!q._done){
           q._done=true;
+          if(q.id){ gradeCard(q.id, ok); }
           if(ok) testState.correct++;
           $("testScore").textContent = `${testState.correct} / ${testState.questions.length}`;
         }
@@ -772,6 +838,11 @@ function initVocab(){
     buildDirections();
     renderCard();
   });
+
+  const srsToggle = document.getElementById("srsMode");
+  if(srsToggle){
+    srsToggle.addEventListener("change", ()=>{ setDeckFromFilters(); });
+  }
   $("searchBox").addEventListener("input", ()=>{
     clearTimeout(window.__qT);
     window.__qT = setTimeout(setDeckFromFilters, 150);
@@ -780,8 +851,21 @@ function initVocab(){
   $("btnPrev").addEventListener("click", prev);
   $("btnNext").addEventListener("click", next);
 
-  $("btnYes").addEventListener("click", next);
-  $("btnNo").addEventListener("click", next);
+  $("btnYes").addEventListener("click", ()=>{
+    if(deck.length && deck[current]?.id){ gradeCard(deck[current].id, true); }
+    if(typeof showToast==="function") showToast("✅ Noté : connu");
+    next();
+  });
+  $("btnNo").addEventListener("click", ()=>{
+    if(deck.length && deck[current]?.id){ gradeCard(deck[current].id, false); }
+    if(typeof showToast==="function") showToast("🔁 Noté : à revoir");
+    if(deck.length>2){
+      const c = deck.splice(current,1)[0];
+      const insertAt = Math.min(deck.length, current + 5);
+      deck.splice(insertAt,0,c);
+    }
+    renderCard();
+  });
 
   
   // Quick bar
@@ -1422,6 +1506,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   // Load progress
   SEEN = loadIdSet(LS_KEYS.seen);
   LIKED = loadIdSet(LS_KEYS.liked);
+  SRS = loadSRS();
 
   // If user has no saved vocab yet, store defaults so CRUD works
   const stored = loadVocab();

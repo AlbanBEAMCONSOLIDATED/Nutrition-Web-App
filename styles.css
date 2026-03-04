@@ -900,3 +900,8 @@ body{
 @media (prefers-reduced-motion: reduce){
   .card3d, .toast, .tab, .action, .qbtn, .bb-btn{ transition:none !important; }
 }
+
+
+/* SRS quickbar */
+.quickbar label{border:1px solid rgba(60,60,67,.18); background:rgba(255,255,255,.82); padding:8px 10px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.04);} 
+@media (max-width:640px){.quickbar label{flex:1 1 100%; justify-content:center;}}
