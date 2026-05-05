@@ -1,9 +1,0 @@
-{
-  "name": "TB1 Flashcards",
-  "short_name": "TB1 Cards v8.7.2",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f2f2f7",
-  "theme_color": "#f2f2f7",
-  "description": "Flashcards TB1 (Units 1–6) – Vocab, grammaire, textes à trous, tests."
-}
